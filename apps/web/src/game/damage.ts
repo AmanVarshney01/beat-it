@@ -15,7 +15,7 @@ interface BruiseMark {
   seed: number;
 }
 
-export type SplatKind = "tomato" | "egg" | "pie" | "chili";
+export type SplatKind = "tomato" | "egg" | "pie" | "chili" | "noodles";
 
 interface SplatMark {
   x: number;
@@ -155,7 +155,36 @@ export class DamagePainter {
     ctx.rotate(rand() * Math.PI * 2);
     ctx.filter = `blur(${Math.max(1, r * 0.03)}px)`;
 
-    if (kind === "pie") {
+    if (kind === "noodles") {
+      // sauce stain + pale noodle squiggles
+      ctx.globalCompositeOperation = "multiply";
+      ctx.globalAlpha = 0.55;
+      const sauce = ctx.createRadialGradient(0, 0, 2, 0, 0, r * 0.9);
+      sauce.addColorStop(0, "rgba(150,96,42,0.7)");
+      sauce.addColorStop(1, "rgba(150,96,42,0)");
+      ctx.fillStyle = sauce;
+      fillEllipse(ctx, 0, 0, r * 0.95, r * 0.75);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(233,211,143,0.9)";
+      ctx.lineCap = "round";
+      for (let i = 0; i < 5; i++) {
+        ctx.lineWidth = r * (0.05 + rand() * 0.03);
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        const sx = (rand() - 0.5) * r;
+        const sy = (rand() - 0.5) * r * 0.6;
+        ctx.moveTo(sx, sy);
+        ctx.bezierCurveTo(
+          sx + (rand() - 0.5) * r * 0.8,
+          sy + r * 0.3,
+          sx + (rand() - 0.5) * r * 0.8,
+          sy + r * 0.7,
+          sx + (rand() - 0.5) * r * 0.5,
+          sy + r * (0.6 + rand() * 0.5),
+        );
+        ctx.stroke();
+      }
+    } else if (kind === "pie") {
       // fluffy cream splat with crust chips — dessert, not liquid
       ctx.globalAlpha = 0.9;
       ctx.fillStyle = "rgb(248,243,228)";

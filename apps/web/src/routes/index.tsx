@@ -6,7 +6,7 @@ import { GameScreen } from "@/components/game-screen";
 import Loader from "@/components/loader";
 import { ManualCrop } from "@/components/manual-crop";
 import { UploadScreen } from "@/components/upload-screen";
-import type { Landmark3 } from "@/game/face3d/head3d";
+import type { Landmark3 } from "@/game/types";
 import { cropFaceOval, regionFromDetection, type OvalRegion } from "@/lib/face/crop";
 import { detectFace, getFaceLandmarks } from "@/lib/face/detector";
 

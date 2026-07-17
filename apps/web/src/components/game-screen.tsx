@@ -1,19 +1,21 @@
 import { Button } from "@beat-it/ui/components/button";
 import { RotateCcw, Settings, UserRoundPlus, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { Landmark3 } from "@/game/face3d/head3d";
 import { type AttackKind, type GameSettings, type GameStats, PunchGame } from "@/game/engine";
+import { renderWeaponIcon, weaponCursorUrl } from "@/game/face3d/scene3d";
+import type { Landmark3 } from "@/game/types";
 
-const WEAPONS: Array<{ kind: AttackKind; glyph: string; label: string }> = [
-  { kind: "punch", glyph: "🥊", label: "Punch" },
-  { kind: "slap", glyph: "✋", label: "Slap" },
-  { kind: "mallet", glyph: "🔨", label: "Mallet" },
-  { kind: "fish", glyph: "🐟", label: "Fish" },
-  { kind: "tomato", glyph: "🍅", label: "Tomato" },
-  { kind: "egg", glyph: "🥚", label: "Egg" },
-  { kind: "pie", glyph: "🥧", label: "Pie" },
-  { kind: "chili", glyph: "🌶️", label: "Chili" },
+const WEAPONS: Array<{ kind: AttackKind; label: string }> = [
+  { kind: "punch", label: "Punch" },
+  { kind: "slap", label: "Slap" },
+  { kind: "mallet", label: "Mallet" },
+  { kind: "fish", label: "Fish" },
+  { kind: "tomato", label: "Tomato" },
+  { kind: "egg", label: "Egg" },
+  { kind: "pie", label: "Pie" },
+  { kind: "chili", label: "Chili" },
+  { kind: "noodles", label: "Noodles" },
 ];
 
 const SETTINGS_KEY = "beat-it-settings";
@@ -95,6 +97,15 @@ export function GameScreen({
     setSettings((s) => ({ ...s, [key]: !s[key] }));
 
   const selected = WEAPONS.find((w) => w.kind === weapon) ?? WEAPONS[0]!;
+  // weapon-model renders: picker icons + the scene cursor becomes the weapon
+  const icons = useMemo(
+    () =>
+      Object.fromEntries(
+        WEAPONS.map((w) => [w.kind, renderWeaponIcon(w.kind, 48).toDataURL()]),
+      ) as Record<AttackKind, string>,
+    [],
+  );
+  const cursorUrl = useMemo(() => weaponCursorUrl(weapon), [weapon]);
 
   return (
     // fullscreen overlay above the app shell — the face is the whole show
@@ -105,6 +116,7 @@ export function GameScreen({
       <canvas
         ref={fgRef}
         className="absolute inset-0 h-full w-full touch-none"
+        style={{ cursor: `url(${cursorUrl}) 16 16, crosshair` }}
         onPointerDown={(e) => {
           const game = gameRef.current;
           if (!game) return;
@@ -192,13 +204,13 @@ export function GameScreen({
             aria-label={w.label}
             title={w.label}
             onClick={() => setWeapon(w.kind)}
-            className={`flex size-12 items-center justify-center rounded-2xl border-2 text-2xl transition-transform ${
+            className={`flex size-12 items-center justify-center rounded-2xl border-2 transition-transform ${
               weapon === w.kind
                 ? "border-red-600 bg-red-600/20 scale-110"
                 : "border-border bg-background/70 hover:scale-105"
             }`}
           >
-            {w.glyph}
+            <img src={icons[w.kind]} alt={w.label} className="size-9" draggable={false} />
           </button>
         ))}
       </div>
@@ -208,9 +220,10 @@ export function GameScreen({
         <button
           type="button"
           onPointerDown={() => gameRef.current?.punch(undefined, weaponRef.current)}
-          className="rounded-full border-4 border-red-800 bg-red-600 px-10 py-5 text-2xl font-black text-white uppercase shadow-[0_6px_0_#7f1d1d] transition-transform active:translate-y-1 active:shadow-[0_2px_0_#7f1d1d]"
+          className="flex items-center gap-3 rounded-full border-4 border-red-800 bg-red-600 px-10 py-5 text-2xl font-black text-white uppercase shadow-[0_6px_0_#7f1d1d] transition-transform active:translate-y-1 active:shadow-[0_2px_0_#7f1d1d]"
         >
-          {selected.label} {selected.glyph}
+          {selected.label}
+          <img src={icons[selected.kind]} alt="" className="size-8" draggable={false} />
         </button>
       </div>
     </div>

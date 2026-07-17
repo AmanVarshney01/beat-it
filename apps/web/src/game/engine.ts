@@ -2,9 +2,12 @@ import Matter from "matter-js";
 
 import { SoundPlayer } from "./audio";
 import { DamagePainter } from "./damage";
-import { Head3D, type Landmark3 } from "./face3d/head3d";
-import { ParticleSystem } from "./particles";
+import { renderWeaponIcon, Scene3D } from "./face3d/scene3d";
+import { drawStar, ParticleSystem, type ShapeKind } from "./particles";
+import type { AttackKind, Landmark3 } from "./types";
 import { FaceWarp } from "./warp";
+
+export type { AttackKind, Landmark3 } from "./types";
 
 export interface GameStats {
   hits: number;
@@ -12,18 +15,8 @@ export interface GameStats {
   damageStage: number;
 }
 
-export type AttackKind =
-  | "punch"
-  | "slap"
-  | "tomato"
-  | "egg"
-  | "mallet"
-  | "fish"
-  | "pie"
-  | "chili";
-
 /** arcing thrown projectiles that vanish into a mark on impact */
-const FOOD_ATTACKS: ReadonlySet<AttackKind> = new Set(["tomato", "egg", "pie", "chili"]);
+const FOOD_ATTACKS: ReadonlySet<AttackKind> = new Set(["tomato", "egg", "pie", "chili", "noodles"]);
 /** horizontal side sweeps */
 const SWEEP_ATTACKS: ReadonlySet<AttackKind> = new Set(["slap", "fish"]);
 
@@ -36,6 +29,7 @@ export interface GameSettings {
 }
 
 interface Fist {
+  id: number;
   attack: AttackKind;
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -56,6 +50,14 @@ const ATTACK_DURATION: Record<AttackKind, number> = {
   fish: 0.34,
   pie: 0.45,
   chili: 0.45,
+  noodles: 0.5,
+};
+
+const ATTACK_SHAPES: Partial<Record<AttackKind, readonly ShapeKind[]>> = {
+  chili: ["flame", "smoke"],
+  fish: ["droplet", "star"],
+  mallet: ["spark", "star"],
+  noodles: ["sauce", "smoke"],
 };
 const COMBO_WINDOW = 1.0; // seconds between hits to keep a combo alive
 export const DAMAGE_THRESHOLDS = [5, 15, 30, 50];
@@ -90,8 +92,9 @@ export class PunchGame {
   private face: HTMLCanvasElement;
   private damage: DamagePainter;
   private neckColor: string;
-  private head3d: Head3D | null = null;
+  private scene3d: Scene3D | null = null;
   private onStats: (stats: GameStats) => void;
+  private nextFistId = 1;
 
   private engine!: Matter.Engine;
   private head!: Matter.Body;
@@ -145,10 +148,10 @@ export class PunchGame {
 
     if (opts.landmarks) {
       try {
-        this.head3d = new Head3D(opts.gl, this.face, opts.landmarks);
+        this.scene3d = new Scene3D(opts.gl, this.face, opts.landmarks, this.neckColor);
       } catch (error) {
-        console.warn("WebGL unavailable, falling back to 2D head", error);
-        this.head3d = null;
+        console.warn("WebGL unavailable, falling back to 2D scene", error);
+        this.scene3d = null;
       }
     }
 
@@ -164,7 +167,7 @@ export class PunchGame {
     this.destroyed = true;
     cancelAnimationFrame(this.rafId);
     this.resizeObserver.disconnect();
-    this.head3d?.dispose();
+    this.scene3d?.dispose();
     if (this.engine) {
       Matter.World.clear(this.engine.world, false);
       Matter.Engine.clear(this.engine);
@@ -184,7 +187,7 @@ export class PunchGame {
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    this.head3d?.resize(w, h, dpr);
+    this.scene3d?.resize(w, h, dpr);
 
     // the face IS the app — let it dominate the viewport
     this.mount = { x: w / 2, y: h * 0.44 };
@@ -221,11 +224,14 @@ export class PunchGame {
       length: 0,
     });
     Matter.World.add(this.engine.world, [this.head, neck, center]);
+
+    const torsoTop = this.mount.y + r * 1.25;
+    this.scene3d?.setLayout(this.mount, r, torsoTop, torsoTop + r * 2.2 + 8);
   }
 
   updateSettings(partial: Partial<GameSettings>) {
     Object.assign(this.settings, partial);
-    if (this.head3d) this.head3d.swayEnabled = this.settings.sway;
+    if (this.scene3d) this.scene3d.swayEnabled = this.settings.sway;
   }
 
   /** True when the point (canvas coords) is on the head — used for tap-to-punch. */
@@ -255,9 +261,9 @@ export class PunchGame {
       const fromLeft = to.x <= headPos.x;
       from = { x: fromLeft ? -r * 1.6 : w + r * 1.6, y: to.y };
       angle = fromLeft ? 0 : Math.PI;
-    } else if (attack === "mallet") {
+    } else if (attack === "mallet" || attack === "noodles") {
       // drops straight down from above the head
-      from = { x: to.x, y: Math.min(to.y - r * 3.6, -r * 0.5) };
+      from = { x: to.x + (attack === "noodles" ? (Math.random() - 0.5) * r * 0.4 : 0), y: Math.min(to.y - r * 3.6, -r * 0.5) };
       angle = Math.PI / 2;
     } else if (FOOD_ATTACKS.has(attack)) {
       // hurled from the viewer: arcs up from the bottom edge
@@ -272,7 +278,9 @@ export class PunchGame {
     }
 
     // concurrent attacks so button-mashing never drops an input
+    const id = this.nextFistId++;
     this.fists.push({
+      id,
       attack,
       from,
       to,
@@ -282,7 +290,11 @@ export class PunchGame {
       strength,
       hasHit: false,
     });
-    if (this.fists.length > 6) this.fists.shift();
+    this.scene3d?.spawnProjectile(id, attack);
+    if (this.fists.length > 6) {
+      const dropped = this.fists.shift();
+      if (dropped) this.scene3d?.removeProjectile(dropped.id);
+    }
     this.sounds.whoosh();
   }
 
@@ -297,8 +309,10 @@ export class PunchGame {
     this.shakeMag = 0;
     this.warp.reset();
     this.damage.clear();
-    this.head3d?.reset();
-    this.head3d?.refreshTexture();
+    this.scene3d?.reset();
+    this.scene3d?.refreshTexture();
+    for (const f of this.fists) this.scene3d?.removeProjectile(f.id);
+    this.fists = [];
     Matter.Body.setPosition(this.head, { ...this.mount });
     Matter.Body.setVelocity(this.head, { x: 0, y: 0 });
     Matter.Body.setAngularVelocity(this.head, 0);
@@ -353,8 +367,8 @@ export class PunchGame {
         : isMallet
           ? fist.strength * 1.4
           : fist.strength;
-    if (this.head3d) {
-      this.head3d.punch(lx, ly, dirLx, dirLy, dentStrength);
+    if (this.scene3d) {
+      this.scene3d.punchDent(lx, ly, dirLx, dirLy, dentStrength);
     } else {
       this.warp.punch(lx, ly, dirLx, dirLy, dentStrength);
     }
@@ -364,11 +378,12 @@ export class PunchGame {
       const u = Math.max(0.03, Math.min(0.97, (lx + 1) / 2));
       const v = Math.max(0.03, Math.min(0.97, (ly + 1) / 2));
       if (isFood) {
-        this.damage.splat(u, v, fist.attack as "tomato" | "egg" | "pie" | "chili");
+        this.damage.splat(u, v, fist.attack as "tomato" | "egg" | "pie" | "chili" | "noodles");
       } else {
         this.damage.hit(u, v, fist.strength);
       }
-      this.head3d?.refreshTexture();
+      if (fist.attack === "noodles") this.scene3d?.addNoodleStrands(lx, ly);
+      this.scene3d?.refreshTexture();
     }
 
     if (this.settings.shake) {
@@ -376,15 +391,13 @@ export class PunchGame {
       this.shakeMag = Math.min(34, this.shakeMag + (isFood ? 3 : 5) + 9 * fist.strength * shakeScale);
     }
     if (this.settings.particles) {
-      const glyphs =
-        fist.attack === "chili"
-          ? ["🔥", "💨"]
-          : fist.attack === "fish"
-            ? ["💦", "⭐"]
-            : isMallet
-              ? ["💥", "⭐", "💫"]
-              : undefined;
-      this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90, glyphs);
+      this.particles.burst(
+        impact.x,
+        impact.y,
+        fist.strength,
+        this.headRadius / 90,
+        ATTACK_SHAPES[fist.attack],
+      );
     }
     if (fist.attack === "chili") this.sounds.sizzle();
     else if (fist.attack === "fish") this.sounds.fish(fist.strength);
@@ -415,7 +428,12 @@ export class PunchGame {
       if (!fist.hasHit && before < IMPACT_T && fist.t >= IMPACT_T) {
         fist.hasHit = true;
         this.landPunch(fist);
+        // thrown things vanish into their splat
+        if (FOOD_ATTACKS.has(fist.attack)) fist.t = 1;
       }
+    }
+    for (const f of this.fists) {
+      if (f.t >= 1) this.scene3d?.removeProjectile(f.id);
     }
     this.fists = this.fists.filter((f) => f.t < 1);
 
@@ -435,7 +453,7 @@ export class PunchGame {
     }
 
     this.warp.update(dt);
-    this.head3d?.update(dt);
+    this.scene3d?.update(dt);
     this.particles.update(dt);
     this.draw();
     this.rafId = requestAnimationFrame(this.frame);
@@ -446,22 +464,40 @@ export class PunchGame {
     return settled ? Math.sin(this.elapsed * 2.2) * 3 : 0;
   }
 
+  /** Where a projectile is along its flight right now (2D path + eased travel). */
+  private projectilePoint(fist: Fist) {
+    const t = fist.t;
+    const isFood = FOOD_ATTACKS.has(fist.attack);
+    const travel = t < IMPACT_T
+      ? easeInCubic(t / IMPACT_T)
+      : isFood
+        ? 1
+        : 1 - easeOutCubic((t - IMPACT_T) / (1 - IMPACT_T)) * 0.9;
+    return {
+      x: fist.from.x + (fist.to.x - fist.from.x) * travel,
+      y: fist.from.y + (fist.to.y - fist.from.y) * travel,
+      travel,
+    };
+  }
+
+  private chinPoint() {
+    const r = this.headRadius;
+    return {
+      x: this.head.position.x + Math.sin(this.head.angle) * r * 0.6,
+      y: this.head.position.y + Math.cos(this.head.angle) * r * 0.55,
+    };
+  }
+
   private draw() {
     const w = this.bg.clientWidth;
     const h = this.bg.clientHeight;
 
-    // background layer: spotlight, dummy, and the head when in 2D mode
     const bg = this.bgCtx;
     bg.clearRect(0, 0, w, h);
-    bg.save();
-    bg.translate(this.shakeX, this.shakeY);
-    this.drawDummy(bg, w, h);
-    if (!this.head3d) this.drawHead(bg);
-    bg.restore();
 
-    // WebGL layer: the 3D head follows the physics body
-    if (this.head3d) {
-      this.head3d.setTransform(
+    if (this.scene3d) {
+      // full 3D scene: room, dummy, head, projectiles
+      this.scene3d.setHead(
         this.head.position.x,
         this.head.position.y + this.headBob(),
         this.head.angle * 0.6,
@@ -469,19 +505,39 @@ export class PunchGame {
         this.headRadius * 1.08,
         this.squash,
         this.squashAngle,
-        this.shakeX,
-        this.shakeY,
       );
-      this.head3d.render();
+      const chin = this.chinPoint();
+      this.scene3d.setNeck(
+        chin.x,
+        chin.y,
+        this.mount.x,
+        this.mount.y + this.headRadius * 1.31,
+        this.headRadius * 0.3,
+      );
+      this.scene3d.setShake(this.shakeX, this.shakeY);
+      for (const fist of this.fists) {
+        const p = this.projectilePoint(fist);
+        this.scene3d.moveProjectile(fist.id, fist.attack, p.x, p.y, fist.angle, p.travel, fist.t);
+      }
+      this.scene3d.render();
+    } else {
+      // 2D fallback: canvas dummy + warped head
+      bg.save();
+      bg.translate(this.shakeX, this.shakeY);
+      this.drawDummy(bg, w, h);
+      this.drawHead(bg);
+      bg.restore();
     }
 
-    // foreground layer: fists, particles, damage overlay on top of the head
+    // foreground layer: 2D-mode projectiles, particles, dizzy stars
     const fg = this.fgCtx;
     fg.clearRect(0, 0, w, h);
     fg.save();
     fg.translate(this.shakeX, this.shakeY);
     this.drawDamageOverlay(fg);
-    for (const fist of this.fists) this.drawFist(fg, fist);
+    if (!this.scene3d) {
+      for (const fist of this.fists) this.drawFist(fg, fist);
+    }
     this.particles.draw(fg);
     fg.restore();
   }
@@ -493,13 +549,17 @@ export class PunchGame {
     const ry = r * 1.08;
     if (this.settings.dizzyStars && this.damageStage >= 4) {
       ctx.save();
-      ctx.font = `${r * 0.34}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
       for (let i = 0; i < 3; i++) {
         const a = this.elapsed * 4 + (i * Math.PI * 2) / 3;
+        ctx.save();
         ctx.globalAlpha = 0.9;
-        ctx.fillText("💫", pos.x + Math.cos(a) * r * 0.9, pos.y - ry - r * 0.25 + Math.sin(a) * r * 0.22);
+        ctx.translate(
+          pos.x + Math.cos(a) * r * 0.9,
+          pos.y - ry - r * 0.25 + Math.sin(a) * r * 0.22,
+        );
+        ctx.rotate(a * 0.5);
+        drawStar(ctx, r * 0.14, "#ffd94d", "#c98800");
+        ctx.restore();
       }
       ctx.restore();
     }
@@ -546,10 +606,10 @@ export class PunchGame {
     ctx.fill();
     ctx.stroke();
     // chest star, because every dummy deserves flair
-    ctx.font = `${r * 0.6}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("⭐", this.mount.x, torsoTop + torsoH * 0.45);
+    ctx.save();
+    ctx.translate(this.mount.x, torsoTop + torsoH * 0.45);
+    drawStar(ctx, r * 0.3, "#ffd94d", "#c98800");
+    ctx.restore();
     ctx.restore();
 
     // neck: a shaded skin quad from the shoulders up under the chin,
@@ -635,53 +695,32 @@ export class PunchGame {
     ctx.restore();
   }
 
+  /** 2D fallback rendering: rendered weapon-model sprites, no emoji. */
   private drawFist(ctx: CanvasRenderingContext2D, fist: Fist) {
-    // in fast (0 → IMPACT_T), retract slower (IMPACT_T → 1)
     const t = fist.t;
     const isFood = FOOD_ATTACKS.has(fist.attack);
-    // food doesn't retract — it disappears into the splat
-    const travel = t < IMPACT_T
-      ? easeInCubic(t / IMPACT_T)
-      : isFood
-        ? 1
-        : 1 - easeOutCubic((t - IMPACT_T) / (1 - IMPACT_T)) * 0.9;
-    if (isFood && t >= IMPACT_T) return;
-    let x = fist.from.x + (fist.to.x - fist.from.x) * travel;
-    let y = fist.from.y + (fist.to.y - fist.from.y) * travel;
+    if (isFood && t >= IMPACT_T) return; // food vanishes into the splat
+    const p = this.projectilePoint(fist);
+    let { y } = p;
 
-    const FOOD_GLYPHS: Partial<Record<AttackKind, string>> = {
-      tomato: "🍅",
-      egg: "🥚",
-      pie: "🥧",
-      chili: "🌶️",
-    };
-    let glyph = "🥊";
     let size = this.headRadius * 1.15;
-    let rotation = fist.angle + Math.PI * 0.75;
-    if (fist.attack === "slap") {
-      glyph = "✋";
-      rotation = fist.angle + Math.PI / 2; // fingers lead the sweep
-    } else if (fist.attack === "fish") {
-      glyph = "🐟";
+    let rotation = fist.angle;
+    if (fist.attack === "fish") {
       rotation = t * 10; // a spinning airborne fish is objectively funnier
     } else if (fist.attack === "mallet") {
-      glyph = "🔨";
       size = this.headRadius * 1.35;
-      rotation = -Math.PI * 0.2 + travel * 0.9; // wind-up into the swing
+      rotation = -Math.PI * 0.2 + p.travel * 0.9; // wind-up into the swing
     } else if (isFood) {
-      glyph = FOOD_GLYPHS[fist.attack] ?? "🍅";
-      size = this.headRadius * (fist.attack === "pie" ? 0.62 : 0.5);
+      size = this.headRadius * (fist.attack === "pie" ? 0.65 : 0.55);
       rotation = t * 14; // tumbling through the air
-      y -= Math.sin(travel * Math.PI) * this.headRadius * 1.2; // arc
+      y -= Math.sin(p.travel * Math.PI) * this.headRadius * 1.2; // arc
     }
 
+    const icon = renderWeaponIcon(fist.attack, 128);
     ctx.save();
-    ctx.translate(x, y);
+    ctx.translate(p.x, y);
     ctx.rotate(rotation);
-    ctx.font = `${size}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(glyph, 0, 0);
+    ctx.drawImage(icon, -size / 2, -size / 2, size, size);
     ctx.restore();
   }
 }
@@ -703,17 +742,21 @@ function roundRect(
   ctx.closePath();
 }
 
-/** Skin tone for the neck, sampled from the chin region of the face crop. */
+/** Skin tone for the neck: brightest of several lower-face samples (dodges hair/shadow). */
 function sampleSkin(face: HTMLCanvasElement): string {
   const ctx = face.getContext("2d");
   if (!ctx) return "#c9977b";
-  const d = ctx.getImageData(
-    Math.floor(face.width * 0.5),
-    Math.floor(face.height * 0.78),
-    1,
-    1,
-  ).data;
-  return `rgb(${d[0]},${d[1]},${d[2]})`;
+  let best: [number, number, number] = [201, 151, 123];
+  let bestLum = -1;
+  for (const [u, v] of [[0.5, 0.72], [0.42, 0.68], [0.58, 0.68], [0.5, 0.6]] as const) {
+    const d = ctx.getImageData(Math.floor(face.width * u), Math.floor(face.height * v), 1, 1).data;
+    const lum = d[0]! * 0.5 + d[1]! * 0.35 + d[2]! * 0.15;
+    if (lum > bestLum) {
+      bestLum = lum;
+      best = [d[0]!, d[1]!, d[2]!];
+    }
+  }
+  return `rgb(${best[0]},${best[1]},${best[2]})`;
 }
 
 /** Darken an rgb()/hex color by a factor (0..1). */
