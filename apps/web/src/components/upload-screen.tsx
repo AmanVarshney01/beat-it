@@ -5,7 +5,13 @@ import { toast } from "sonner";
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const INPUT_ID = "face-photo-input";
 
-export function UploadScreen({ onImage }: { onImage: (image: HTMLImageElement) => void }) {
+export function UploadScreen({
+  onImage,
+  onDemo,
+}: {
+  onImage: (image: HTMLImageElement) => void;
+  onDemo: () => void;
+}) {
   const [dragging, setDragging] = useState(false);
 
   const handleFile = (file: File | undefined) => {
@@ -71,12 +77,21 @@ export function UploadScreen({ onImage }: { onImage: (image: HTMLImageElement) =
         }}
       />
 
-      <label
-        htmlFor={INPUT_ID}
-        className="bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-11 cursor-pointer items-center justify-center rounded-md px-6 text-base font-semibold select-none"
-      >
-        Pick a photo
-      </label>
+      <div className="flex items-center gap-4">
+        <label
+          htmlFor={INPUT_ID}
+          className="bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-11 cursor-pointer items-center justify-center rounded-md px-6 text-base font-semibold select-none"
+        >
+          Pick a photo
+        </label>
+        <button
+          type="button"
+          onClick={onDemo}
+          className="text-muted-foreground hover:text-foreground text-base underline underline-offset-4"
+        >
+          or try the demo face 🎭
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { GameScreen } from "@/components/game-screen";
@@ -55,9 +55,22 @@ function HomeComponent() {
     startGame(cropFaceOval(image, region));
   };
 
+  const loadDemoFace = () => {
+    const img = new Image();
+    img.onload = () => void handleImage(img);
+    img.onerror = () => toast.error("Couldn't load the demo face — try uploading one.");
+    img.src = "/demo-face.jpg";
+  };
+
+  // ?demo=1 deep-links straight into punching the bundled demo face
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("demo")) loadDemoFace();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
+
   switch (phase.name) {
     case "upload":
-      return <UploadScreen onImage={handleImage} />;
+      return <UploadScreen onImage={handleImage} onDemo={loadDemoFace} />;
     case "detecting":
       return (
         <div className="flex h-full flex-col items-center justify-center gap-3">
