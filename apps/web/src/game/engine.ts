@@ -1,6 +1,7 @@
 import Matter from "matter-js";
 
 import { SoundPlayer } from "./audio";
+import { DamagePainter } from "./damage";
 import { Head3D, type Landmark3 } from "./face3d/head3d";
 import { ParticleSystem } from "./particles";
 import { FaceWarp } from "./warp";
@@ -53,6 +54,8 @@ export class PunchGame {
   private bgCtx: CanvasRenderingContext2D;
   private fgCtx: CanvasRenderingContext2D;
   private face: HTMLCanvasElement;
+  private damage: DamagePainter;
+  private neckColor: string;
   private head3d: Head3D | null = null;
   private onStats: (stats: GameStats) => void;
 
@@ -93,9 +96,14 @@ export class PunchGame {
     this.face = opts.face;
     this.onStats = opts.onStats;
 
+    // all rendering (2D warp and 3D texture) reads the damage-painted canvas
+    this.damage = new DamagePainter(opts.face, opts.landmarks);
+    this.face = this.damage.canvas;
+    this.neckColor = sampleSkin(opts.face);
+
     if (opts.landmarks) {
       try {
-        this.head3d = new Head3D(opts.gl, opts.face, opts.landmarks);
+        this.head3d = new Head3D(opts.gl, this.face, opts.landmarks);
       } catch (error) {
         console.warn("WebGL unavailable, falling back to 2D head", error);
         this.head3d = null;
@@ -220,7 +228,9 @@ export class PunchGame {
     this.squashVel = 0;
     this.shakeMag = 0;
     this.warp.reset();
+    this.damage.paint(0);
     this.head3d?.reset();
+    this.head3d?.refreshTexture();
     Matter.Body.setPosition(this.head, { ...this.mount });
     Matter.Body.setVelocity(this.head, { x: 0, y: 0 });
     Matter.Body.setAngularVelocity(this.head, 0);
@@ -274,7 +284,12 @@ export class PunchGame {
     const now = this.elapsed;
     this.combo = now - this.lastHitAt <= COMBO_WINDOW ? this.combo + 1 : 1;
     this.lastHitAt = now;
+    const stageBefore = this.damageStage;
     this.hits += 1;
+    if (this.damageStage !== stageBefore) {
+      this.damage.paint(this.damageStage);
+      this.head3d?.refreshTexture();
+    }
     if (this.combo > 0 && this.combo % 5 === 0) this.sounds.comboDing(this.combo / 5);
     this.emitStats();
   }
@@ -358,24 +373,17 @@ export class PunchGame {
     fg.clearRect(0, 0, w, h);
     fg.save();
     fg.translate(this.shakeX, this.shakeY);
-    if (this.head3d) this.drawDamageOverlay(fg);
+    this.drawDamageOverlay(fg);
     for (const fist of this.fists) this.drawFist(fg, fist);
     this.particles.draw(fg);
     fg.restore();
   }
 
-  /** 3D mode: damage stickers + dizzy stars drawn on the fg layer over the mesh. */
+  /** Dizzy stars at max damage — bruises themselves live in the face texture. */
   private drawDamageOverlay(ctx: CanvasRenderingContext2D) {
     const r = this.headRadius;
     const pos = this.head.position;
-    const rx = r * 0.88;
     const ry = r * 1.08;
-    ctx.save();
-    ctx.translate(pos.x, pos.y + this.headBob());
-    ctx.rotate(this.head.angle * 0.6);
-    this.drawDamage(ctx, rx, ry);
-    ctx.restore();
-
     if (this.damageStage >= 4) {
       ctx.save();
       ctx.font = `${r * 0.34}px sans-serif`;
@@ -437,34 +445,38 @@ export class PunchGame {
     ctx.fillText("⭐", this.mount.x, torsoTop + torsoH * 0.45);
     ctx.restore();
 
-    // spring coil from shoulders to the head's chin
-    const neckStart = { x: this.mount.x, y: torsoTop + 4 };
+    // neck: a shaded skin quad from the shoulders up under the chin,
+    // stretching and tilting with the head (the physics spring is invisible)
+    const baseHalf = r * 0.34;
+    const topHalf = r * 0.26;
+    const baseY = torsoTop + 8;
     const chin = {
-      x: this.head.position.x + Math.sin(this.head.angle) * r * 0.8,
-      y: this.head.position.y + Math.cos(this.head.angle) * r * 0.8,
+      x: this.head.position.x + Math.sin(this.head.angle) * r * 0.6,
+      y: this.head.position.y + Math.cos(this.head.angle) * r * 0.55,
     };
+    const tiltX = Math.sin(this.head.angle) * topHalf * 0.4;
     ctx.save();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = "#6b7280";
-    ctx.lineCap = "round";
+    const grad = ctx.createLinearGradient(0, chin.y, 0, baseY);
+    grad.addColorStop(0, this.neckColor);
+    grad.addColorStop(1, shade(this.neckColor, 0.78));
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    const coils = 5;
-    const dx = chin.x - neckStart.x;
-    const dy = chin.y - neckStart.y;
-    const nx = -dy;
-    const ny = dx;
-    const nLen = Math.hypot(nx, ny) || 1;
-    ctx.moveTo(neckStart.x, neckStart.y);
-    for (let i = 1; i <= coils; i++) {
-      const t = i / (coils + 1);
-      const side = i % 2 === 0 ? 1 : -1;
-      ctx.lineTo(
-        neckStart.x + dx * t + (nx / nLen) * side * r * 0.22,
-        neckStart.y + dy * t + (ny / nLen) * side * r * 0.22,
-      );
-    }
-    ctx.lineTo(chin.x, chin.y);
-    ctx.stroke();
+    ctx.moveTo(this.mount.x - baseHalf, baseY);
+    ctx.quadraticCurveTo(
+      this.mount.x - baseHalf,
+      (baseY + chin.y) / 2,
+      chin.x - topHalf + tiltX,
+      chin.y,
+    );
+    ctx.lineTo(chin.x + topHalf + tiltX, chin.y);
+    ctx.quadraticCurveTo(
+      this.mount.x + baseHalf,
+      (baseY + chin.y) / 2,
+      this.mount.x + baseHalf,
+      baseY,
+    );
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 
@@ -489,23 +501,8 @@ export class PunchGame {
     const rx = r * 0.88;
     const ry = r * 1.08;
     this.warp.draw(ctx, this.face, rx, ry);
-    this.drawDamage(ctx, rx, ry);
     this.drawShading(ctx, rx, ry);
     ctx.restore();
-
-    // dizzy stars orbit outside the squashed transform so they stay crisp
-    if (this.damageStage >= 4) {
-      ctx.save();
-      ctx.font = `${r * 0.34}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      for (let i = 0; i < 3; i++) {
-        const a = this.elapsed * 4 + (i * Math.PI * 2) / 3;
-        ctx.globalAlpha = 0.9;
-        ctx.fillText("💫", pos.x + Math.cos(a) * r * 0.9, pos.y - ry - r * 0.25 + Math.sin(a) * r * 0.22);
-      }
-      ctx.restore();
-    }
   }
 
   /** Dome shading: top-left highlight + rim shadow so the face reads as 3D. */
@@ -529,44 +526,6 @@ export class PunchGame {
     ctx.fillStyle = rim;
     ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
     ctx.restore();
-  }
-
-  /** Cartoon damage stickers, anchored to the face oval, keyed to hit thresholds. */
-  private drawDamage(ctx: CanvasRenderingContext2D, rx: number, ry: number) {
-    const stage = this.damageStage;
-    if (stage >= 1) {
-      // black eye — dark radial blotch over the left eye
-      const g = ctx.createRadialGradient(-rx * 0.34, -ry * 0.18, 2, -rx * 0.34, -ry * 0.18, rx * 0.3);
-      g.addColorStop(0, "rgba(70,40,110,0.85)");
-      g.addColorStop(0.7, "rgba(90,60,130,0.5)");
-      g.addColorStop(1, "rgba(90,60,130,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(-rx * 0.34, -ry * 0.18, rx * 0.3, rx * 0.24, 0.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    if (stage >= 2) {
-      // bruise on the right cheek
-      const g = ctx.createRadialGradient(rx * 0.4, ry * 0.25, 2, rx * 0.4, ry * 0.25, rx * 0.26);
-      g.addColorStop(0, "rgba(110,60,140,0.7)");
-      g.addColorStop(0.6, "rgba(60,110,80,0.4)");
-      g.addColorStop(1, "rgba(60,110,80,0)");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(rx * 0.4, ry * 0.25, rx * 0.26, rx * 0.2, -0.3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    if (stage >= 3) {
-      // band-aid across the forehead
-      ctx.save();
-      ctx.translate(rx * 0.1, -ry * 0.55);
-      ctx.rotate(-0.45);
-      ctx.font = `${rx * 0.55}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("🩹", 0, 0);
-      ctx.restore();
-    }
   }
 
   private drawFist(ctx: CanvasRenderingContext2D, fist: Fist) {
@@ -604,6 +563,26 @@ function roundRect(
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+/** Skin tone for the neck, sampled from the chin region of the face crop. */
+function sampleSkin(face: HTMLCanvasElement): string {
+  const ctx = face.getContext("2d");
+  if (!ctx) return "#c9977b";
+  const d = ctx.getImageData(
+    Math.floor(face.width * 0.5),
+    Math.floor(face.height * 0.78),
+    1,
+    1,
+  ).data;
+  return `rgb(${d[0]},${d[1]},${d[2]})`;
+}
+
+/** Darken an rgb()/hex color by a factor (0..1). */
+function shade(color: string, factor: number): string {
+  const m = color.match(/rgb\((\d+),(\d+),(\d+)\)/);
+  if (!m) return color;
+  return `rgb(${Math.round(Number(m[1]) * factor)},${Math.round(Number(m[2]) * factor)},${Math.round(Number(m[3]) * factor)})`;
 }
 
 function easeInCubic(t: number) {

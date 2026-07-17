@@ -86,3 +86,12 @@ When face landmarks are found for the face bitmap, the head SHALL render as a li
 - **WHEN** the game starts with a face bitmap that yields no landmarks
 - **THEN** the scene renders and plays using the 2D warp pipeline
 
+### Requirement: Dummy has a neck
+
+The dummy SHALL connect the head to the torso with a skin-toned neck whose color is sampled from the face image and which follows the head's position and tilt. The underlying physics mount (damped spring behavior) is unchanged.
+
+#### Scenario: Neck follows the head
+
+- **WHEN** the head recoils from a punch
+- **THEN** the neck stays visually connected from torso to chin, stretching and tilting with the head
+

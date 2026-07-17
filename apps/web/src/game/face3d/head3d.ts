@@ -197,6 +197,11 @@ export class Head3D {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /** Call after the face canvas has been repainted (e.g. new damage stage). */
+  refreshTexture() {
+    this.texture.needsUpdate = true;
+  }
+
   reset() {
     this.offsets.fill(0);
     this.velocities.fill(0);
