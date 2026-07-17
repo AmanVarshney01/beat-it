@@ -86,29 +86,14 @@ export class Head3D {
     this.texture = new THREE.CanvasTexture(face);
     this.texture.flipY = false; // UVs use top-origin landmark coords directly
     this.texture.colorSpace = THREE.SRGBColorSpace;
-    const material = new THREE.MeshLambertMaterial({ map: this.texture });
+    // face only — no backing skull volume; DoubleSide keeps grazing angles
+    // solid within the clamped yaw range
+    const material = new THREE.MeshLambertMaterial({
+      map: this.texture,
+      side: THREE.DoubleSide,
+    });
     this.faceMesh = new THREE.Mesh(geometry, material);
     this.group.add(this.faceMesh);
-
-    // back of the skull: flattened sphere hugging the face contour, kept fully
-    // BEHIND the face surface (landmark z is shallow, chin recedes ~-0.15) so
-    // it reads as head volume on rotation without ever occluding the face
-    const skull = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 24, 16),
-      new THREE.MeshLambertMaterial({ color: sampleColor(face, 0.32, 0.55) }),
-    );
-    skull.scale.set(0.72, 0.88, 0.42);
-    skull.position.set(0, 0.05, -0.42);
-    this.group.add(skull);
-
-    // hair impression: a dome cap over the crown tinted from the top of the crop
-    const hair = new THREE.Mesh(
-      new THREE.SphereGeometry(0.51, 24, 12, 0, Math.PI * 2, 0, 1.15),
-      new THREE.MeshLambertMaterial({ color: sampleColor(face, 0.5, 0.06) }),
-    );
-    hair.scale.set(0.74, 0.9, 0.44);
-    hair.position.set(0, 0.06, -0.42);
-    this.group.add(hair);
 
     this.scene.add(this.group);
     this.softness = buildVertexSoftness(landmarks);
@@ -251,14 +236,3 @@ function buildVertexSoftness(landmarks: Landmark3[]): Float32Array {
   return map;
 }
 
-function sampleColor(canvas: HTMLCanvasElement, u: number, v: number): THREE.Color {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return new THREE.Color(0x8d5f4a);
-  const data = ctx.getImageData(
-    Math.floor(u * canvas.width),
-    Math.floor(v * canvas.height),
-    1,
-    1,
-  ).data;
-  return new THREE.Color(data[0]! / 255, data[1]! / 255, data[2]! / 255).multiplyScalar(0.85);
-}
