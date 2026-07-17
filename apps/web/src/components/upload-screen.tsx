@@ -1,12 +1,11 @@
-import { Button } from "@beat-it/ui/components/button";
 import { ImageUp } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
+const INPUT_ID = "face-photo-input";
 
 export function UploadScreen({ onImage }: { onImage: (image: HTMLImageElement) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
   const handleFile = (file: File | undefined) => {
@@ -39,9 +38,9 @@ export function UploadScreen({ onImage }: { onImage: (image: HTMLImageElement) =
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
+      {/* labels trigger the file input natively — no programmatic click needed */}
+      <label
+        htmlFor={INPUT_ID}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -59,22 +58,25 @@ export function UploadScreen({ onImage }: { onImage: (image: HTMLImageElement) =
         <ImageUp className="size-12" />
         <span className="text-lg font-semibold">Drop a face photo here</span>
         <span className="text-muted-foreground text-sm">or click to choose a file</span>
-      </button>
+      </label>
 
       <input
-        ref={inputRef}
+        id={INPUT_ID}
         type="file"
         accept={ACCEPTED.join(",")}
-        className="hidden"
+        className="sr-only"
         onChange={(e) => {
           handleFile(e.target.files?.[0]);
           e.target.value = "";
         }}
       />
 
-      <Button size="lg" onClick={() => inputRef.current?.click()}>
+      <label
+        htmlFor={INPUT_ID}
+        className="bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-11 cursor-pointer items-center justify-center rounded-md px-6 text-base font-semibold select-none"
+      >
         Pick a photo
-      </Button>
+      </label>
     </div>
   );
 }

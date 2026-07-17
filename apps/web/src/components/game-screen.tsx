@@ -32,7 +32,8 @@ export function GameScreen({
   }, [muted]);
 
   return (
-    <div className="relative h-full select-none overflow-hidden">
+    // fullscreen overlay above the app shell — the face is the whole show
+    <div className="bg-background fixed inset-0 z-40 select-none overflow-hidden">
       <canvas
         ref={canvasRef}
         className="h-full w-full touch-none"

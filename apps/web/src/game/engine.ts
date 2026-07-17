@@ -100,8 +100,9 @@ export class PunchGame {
     this.canvas.height = Math.round(h * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    this.mount = { x: w / 2, y: h * 0.42 };
-    this.headRadius = Math.max(56, Math.min(110, Math.min(w, h) * 0.17));
+    // the face IS the app — let it dominate the viewport
+    this.mount = { x: w / 2, y: h * 0.44 };
+    this.headRadius = Math.max(90, Math.min(400, Math.min(w, h) * 0.34));
 
     if (this.engine) {
       Matter.World.clear(this.engine.world, false);
@@ -212,7 +213,7 @@ export class PunchGame {
     this.squashVel = 0;
     this.squashAngle = dir;
     this.shakeMag = Math.min(30, this.shakeMag + 5 + 9 * fist.strength);
-    this.particles.burst(impact.x, impact.y, fist.strength);
+    this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90);
     this.sounds.punch(fist.strength);
 
     const now = this.elapsed;
@@ -282,13 +283,31 @@ export class PunchGame {
     const r = this.headRadius;
     const torsoTop = this.mount.y + r * 1.25;
     const torsoW = r * 2.3;
-    const torsoH = Math.min(h - torsoTop - 20, r * 2.6);
+    // the torso may run off the bottom edge on short viewports — that's fine
+    const torsoH = r * 2.2;
+
+    // soft spotlight anchoring the dummy in the frame
+    ctx.save();
+    const spot = ctx.createRadialGradient(
+      this.mount.x,
+      this.mount.y,
+      r * 0.3,
+      this.mount.x,
+      this.mount.y,
+      Math.max(w, h) * 0.7,
+    );
+    spot.addColorStop(0, "rgba(255,255,255,0.09)");
+    spot.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = spot;
+    ctx.fillRect(-40, -40, w + 80, h + 80);
+    ctx.restore();
 
     // floor shadow tracks the head so the wobble reads
+    const shadowY = Math.min(torsoTop + torsoH + 8, h - 24);
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.18)";
     ctx.beginPath();
-    ctx.ellipse(this.head.position.x, torsoTop + torsoH + 8, torsoW * 0.62, r * 0.22, 0, 0, Math.PI * 2);
+    ctx.ellipse(this.head.position.x, shadowY, torsoW * 0.62, r * 0.22, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 

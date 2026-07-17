@@ -19,6 +19,7 @@ interface WordParticle {
   text: string;
   tilt: number;
   color: string;
+  size: number;
   life: number;
   maxLife: number;
 }
@@ -34,21 +35,21 @@ const GRAVITY = 900; // px/s²
 export class ParticleSystem {
   private particles: Particle[] = [];
 
-  burst(x: number, y: number, strength = 1) {
+  burst(x: number, y: number, strength = 1, scale = 1) {
     const starCount = 5 + Math.floor(Math.random() * 4);
     for (let i = 0; i < starCount; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = (180 + Math.random() * 260) * strength;
+      const speed = (180 + Math.random() * 260) * strength * Math.sqrt(scale);
       const life = 0.5 + Math.random() * 0.4;
       this.particles.push({
         kind: "star",
         x,
         y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 150,
+        vy: Math.sin(angle) * speed - 150 * scale,
         rot: Math.random() * Math.PI * 2,
         vrot: (Math.random() - 0.5) * 12,
-        size: 16 + Math.random() * 14 * strength,
+        size: (16 + Math.random() * 14 * strength) * scale,
         glyph: STAR_GLYPHS[Math.floor(Math.random() * STAR_GLYPHS.length)] ?? "⭐",
         life,
         maxLife: life,
@@ -56,11 +57,12 @@ export class ParticleSystem {
     }
     this.particles.push({
       kind: "word",
-      x: x + (Math.random() - 0.5) * 40,
-      y: y - 30,
+      x: x + (Math.random() - 0.5) * 40 * scale,
+      y: y - 30 * scale,
       text: WORDS[Math.floor(Math.random() * WORDS.length)] ?? "POW!",
       tilt: (Math.random() - 0.5) * 0.5,
       color: WORD_COLORS[Math.floor(Math.random() * WORD_COLORS.length)] ?? "#ff3d3d",
+      size: Math.min(110, 44 * scale),
       life: 0.6,
       maxLife: 0.6,
     });
@@ -99,7 +101,7 @@ export class ParticleSystem {
         ctx.translate(p.x, p.y);
         ctx.rotate(p.tilt);
         ctx.scale(scale, scale);
-        ctx.font = "900 44px 'Comic Sans MS', 'Chalkboard SE', cursive";
+        ctx.font = `900 ${p.size}px 'Comic Sans MS', 'Chalkboard SE', cursive`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.lineWidth = 8;
