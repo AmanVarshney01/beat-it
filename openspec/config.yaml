@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  Project: "beat-it" — a browser gag/stress-relief game.
+  Users upload a face photo; the app detects/crops the face, mounts it on a
+  cartoon head, and lets the user punch it with satisfying feedback
+  (squash/spring animation, screen shake, particles, comic sounds,
+  escalating damage overlays, combo counter).
+
+  Tech stack: Vite + React + TypeScript, HTML canvas for the game scene,
+  MediaPipe (tasks-vision) for in-browser face detection, matter.js for
+  physics. Fully client-side — uploaded images never leave the browser.
+  Tone: cartoonish/comic, never realistic violence.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
