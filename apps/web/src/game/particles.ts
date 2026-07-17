@@ -35,7 +35,7 @@ const GRAVITY = 900; // px/s²
 export class ParticleSystem {
   private particles: Particle[] = [];
 
-  burst(x: number, y: number, strength = 1, scale = 1) {
+  burst(x: number, y: number, strength = 1, scale = 1, glyphs: readonly string[] = STAR_GLYPHS) {
     const starCount = 5 + Math.floor(Math.random() * 4);
     for (let i = 0; i < starCount; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -50,7 +50,7 @@ export class ParticleSystem {
         rot: Math.random() * Math.PI * 2,
         vrot: (Math.random() - 0.5) * 12,
         size: (16 + Math.random() * 14 * strength) * scale,
-        glyph: STAR_GLYPHS[Math.floor(Math.random() * STAR_GLYPHS.length)] ?? "⭐",
+        glyph: glyphs[Math.floor(Math.random() * glyphs.length)] ?? "⭐",
         life,
         maxLife: life,
       });

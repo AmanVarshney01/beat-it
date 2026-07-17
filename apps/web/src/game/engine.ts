@@ -12,7 +12,20 @@ export interface GameStats {
   damageStage: number;
 }
 
-export type AttackKind = "punch" | "slap" | "tomato" | "egg";
+export type AttackKind =
+  | "punch"
+  | "slap"
+  | "tomato"
+  | "egg"
+  | "mallet"
+  | "fish"
+  | "pie"
+  | "chili";
+
+/** arcing thrown projectiles that vanish into a mark on impact */
+const FOOD_ATTACKS: ReadonlySet<AttackKind> = new Set(["tomato", "egg", "pie", "chili"]);
+/** horizontal side sweeps */
+const SWEEP_ATTACKS: ReadonlySet<AttackKind> = new Set(["slap", "fish"]);
 
 export interface GameSettings {
   shake: boolean;
@@ -39,6 +52,10 @@ const ATTACK_DURATION: Record<AttackKind, number> = {
   slap: 0.3,
   tomato: 0.45,
   egg: 0.45,
+  mallet: 0.32,
+  fish: 0.34,
+  pie: 0.45,
+  chili: 0.45,
 };
 const COMBO_WINDOW = 1.0; // seconds between hits to keep a combo alive
 export const DAMAGE_THRESHOLDS = [5, 15, 30, 50];
@@ -233,12 +250,16 @@ export class PunchGame {
 
     let from: { x: number; y: number };
     let angle: number;
-    if (attack === "slap") {
-      // open hand sweeps in horizontally from the target's side of the screen
+    if (SWEEP_ATTACKS.has(attack)) {
+      // hand/fish sweeps in horizontally from the target's side of the screen
       const fromLeft = to.x <= headPos.x;
       from = { x: fromLeft ? -r * 1.6 : w + r * 1.6, y: to.y };
       angle = fromLeft ? 0 : Math.PI;
-    } else if (attack === "tomato" || attack === "egg") {
+    } else if (attack === "mallet") {
+      // drops straight down from above the head
+      from = { x: to.x, y: Math.min(to.y - r * 3.6, -r * 0.5) };
+      angle = Math.PI / 2;
+    } else if (FOOD_ATTACKS.has(attack)) {
       // hurled from the viewer: arcs up from the bottom edge
       from = { x: to.x + (Math.random() - 0.5) * w * 0.25, y: h + r * 0.6 };
       angle = Math.atan2(to.y - from.y, to.x - from.x);
@@ -296,20 +317,21 @@ export class PunchGame {
   private landPunch(fist: Fist) {
     const impact = fist.to;
     const dir = fist.angle;
-    const isFood = fist.attack === "tomato" || fist.attack === "egg";
-    const isSlap = fist.attack === "slap";
-    // food knocks are soft; slaps hit harder sideways
-    const impulse = isFood ? 6 : isSlap ? 20 : 16;
+    const isFood = FOOD_ATTACKS.has(fist.attack);
+    const isSweep = SWEEP_ATTACKS.has(fist.attack);
+    const isMallet = fist.attack === "mallet";
+    // food knocks are soft; sweeps hit harder sideways; the mallet hits hardest
+    const impulse = isFood ? 6 : isMallet ? 26 : isSweep ? 20 : 16;
 
     Matter.Body.setVelocity(this.head, {
       x: this.head.velocity.x + Math.cos(dir) * impulse * fist.strength,
       y: this.head.velocity.y + Math.sin(dir) * impulse * fist.strength - (isFood ? 1 : 3),
     });
     const spin = (impact.y < this.head.position.y ? 1 : -1) * Math.sign(Math.cos(dir) || 1);
-    const spinScale = isSlap ? 0.3 : isFood ? 0.06 : 0.12;
+    const spinScale = isSweep ? 0.3 : isFood ? 0.06 : isMallet ? 0.04 : 0.12;
     Matter.Body.setAngularVelocity(this.head, spin * (spinScale + 0.1 * fist.strength));
 
-    this.squash = isFood ? 0.4 : 1;
+    this.squash = isFood ? 0.4 : isMallet ? 1.4 : 1;
     this.squashVel = 0;
     this.squashAngle = dir;
 
@@ -324,19 +346,25 @@ export class PunchGame {
     const ly = Math.max(-1.1, Math.min(1.1, (dx * sinA + dy * cosA) / (r * 1.08)));
     const dirLx = Math.cos(dir) * cosA - Math.sin(dir) * sinA;
     const dirLy = Math.cos(dir) * sinA + Math.sin(dir) * cosA;
-    const dentStrength = isFood ? fist.strength * 0.35 : isSlap ? fist.strength * 1.2 : fist.strength;
+    const dentStrength = isFood
+      ? fist.strength * 0.35
+      : isSweep
+        ? fist.strength * 1.2
+        : isMallet
+          ? fist.strength * 1.4
+          : fist.strength;
     if (this.head3d) {
       this.head3d.punch(lx, ly, dirLx, dirLy, dentStrength);
     } else {
       this.warp.punch(lx, ly, dirLx, dirLy, dentStrength);
     }
 
-    // damage lands exactly where the attack hit
-    if (this.settings.damage) {
+    // damage lands exactly where the attack hit (the fish is mark-free)
+    if (this.settings.damage && fist.attack !== "fish") {
       const u = Math.max(0.03, Math.min(0.97, (lx + 1) / 2));
       const v = Math.max(0.03, Math.min(0.97, (ly + 1) / 2));
       if (isFood) {
-        this.damage.splat(u, v, fist.attack as "tomato" | "egg");
+        this.damage.splat(u, v, fist.attack as "tomato" | "egg" | "pie" | "chili");
       } else {
         this.damage.hit(u, v, fist.strength);
       }
@@ -344,13 +372,25 @@ export class PunchGame {
     }
 
     if (this.settings.shake) {
-      this.shakeMag = Math.min(30, this.shakeMag + (isFood ? 3 : 5) + 9 * fist.strength * (isFood ? 0.4 : 1));
+      const shakeScale = isFood ? 0.4 : isMallet ? 1.4 : 1;
+      this.shakeMag = Math.min(34, this.shakeMag + (isFood ? 3 : 5) + 9 * fist.strength * shakeScale);
     }
     if (this.settings.particles) {
-      this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90);
+      const glyphs =
+        fist.attack === "chili"
+          ? ["🔥", "💨"]
+          : fist.attack === "fish"
+            ? ["💦", "⭐"]
+            : isMallet
+              ? ["💥", "⭐", "💫"]
+              : undefined;
+      this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90, glyphs);
     }
-    if (isFood) this.sounds.splat();
-    else if (isSlap) this.sounds.slap(fist.strength);
+    if (fist.attack === "chili") this.sounds.sizzle();
+    else if (fist.attack === "fish") this.sounds.fish(fist.strength);
+    else if (isFood) this.sounds.splat();
+    else if (isMallet) this.sounds.bonk(fist.strength);
+    else if (isSweep) this.sounds.slap(fist.strength);
     else this.sounds.punch(fist.strength);
 
     const now = this.elapsed;
@@ -559,8 +599,8 @@ export class PunchGame {
     const tilt = Math.max(-0.14, Math.min(0.14, this.head.velocity.x * 0.006));
     ctx.scale(1 - Math.abs(tilt), 1);
 
-    // render-only squash along the impact axis
-    const s = Math.max(-0.5, Math.min(1, this.squash));
+    // render-only squash along the impact axis (mallet overshoots past 1)
+    const s = Math.max(-0.5, Math.min(1.4, this.squash));
     ctx.rotate(this.squashAngle);
     ctx.scale(1 - 0.32 * s, 1 + 0.26 * s);
     ctx.rotate(-this.squashAngle);
@@ -598,7 +638,7 @@ export class PunchGame {
   private drawFist(ctx: CanvasRenderingContext2D, fist: Fist) {
     // in fast (0 → IMPACT_T), retract slower (IMPACT_T → 1)
     const t = fist.t;
-    const isFood = fist.attack === "tomato" || fist.attack === "egg";
+    const isFood = FOOD_ATTACKS.has(fist.attack);
     // food doesn't retract — it disappears into the splat
     const travel = t < IMPACT_T
       ? easeInCubic(t / IMPACT_T)
@@ -609,15 +649,28 @@ export class PunchGame {
     let x = fist.from.x + (fist.to.x - fist.from.x) * travel;
     let y = fist.from.y + (fist.to.y - fist.from.y) * travel;
 
+    const FOOD_GLYPHS: Partial<Record<AttackKind, string>> = {
+      tomato: "🍅",
+      egg: "🥚",
+      pie: "🥧",
+      chili: "🌶️",
+    };
     let glyph = "🥊";
     let size = this.headRadius * 1.15;
     let rotation = fist.angle + Math.PI * 0.75;
     if (fist.attack === "slap") {
       glyph = "✋";
       rotation = fist.angle + Math.PI / 2; // fingers lead the sweep
+    } else if (fist.attack === "fish") {
+      glyph = "🐟";
+      rotation = t * 10; // a spinning airborne fish is objectively funnier
+    } else if (fist.attack === "mallet") {
+      glyph = "🔨";
+      size = this.headRadius * 1.35;
+      rotation = -Math.PI * 0.2 + travel * 0.9; // wind-up into the swing
     } else if (isFood) {
-      glyph = fist.attack === "tomato" ? "🍅" : "🥚";
-      size = this.headRadius * 0.5;
+      glyph = FOOD_GLYPHS[fist.attack] ?? "🍅";
+      size = this.headRadius * (fist.attack === "pie" ? 0.62 : 0.5);
       rotation = t * 14; // tumbling through the air
       y -= Math.sin(travel * Math.PI) * this.headRadius * 1.2; // arc
     }

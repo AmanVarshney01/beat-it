@@ -15,10 +15,12 @@ interface BruiseMark {
   seed: number;
 }
 
+export type SplatKind = "tomato" | "egg" | "pie" | "chili";
+
 interface SplatMark {
   x: number;
   y: number;
-  kind: "tomato" | "egg";
+  kind: SplatKind;
   seed: number;
 }
 
@@ -61,8 +63,8 @@ export class DamagePainter {
     this.repaint();
   }
 
-  /** Food attack at (u, v): paint a splat. */
-  splat(u: number, v: number, kind: "tomato" | "egg") {
+  /** Food/gag attack at (u, v): paint a splat/flush mark. */
+  splat(u: number, v: number, kind: SplatKind) {
     this.splats.push({
       x: u * this.canvas.width,
       y: v * this.canvas.height,
@@ -153,7 +155,52 @@ export class DamagePainter {
     ctx.rotate(rand() * Math.PI * 2);
     ctx.filter = `blur(${Math.max(1, r * 0.03)}px)`;
 
-    if (kind === "tomato") {
+    if (kind === "pie") {
+      // fluffy cream splat with crust chips — dessert, not liquid
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "rgb(248,243,228)";
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + rand() * 0.5;
+        const d = r * (0.25 + rand() * 0.45);
+        fillEllipse(ctx, Math.cos(a) * d, Math.sin(a) * d, r * (0.28 + rand() * 0.2), r * (0.22 + rand() * 0.16));
+      }
+      fillEllipse(ctx, 0, 0, r * 0.6, r * 0.55);
+      ctx.fillStyle = "rgb(255,252,244)"; // whipped highlights
+      ctx.globalAlpha = 0.8;
+      for (let i = 0; i < 5; i++) {
+        const a = rand() * Math.PI * 2;
+        const d = rand() * r * 0.4;
+        fillEllipse(ctx, Math.cos(a) * d, Math.sin(a) * d, r * 0.18, r * 0.14);
+      }
+      ctx.fillStyle = "rgb(206,164,98)"; // crust chips
+      for (let i = 0; i < 5; i++) {
+        const a = rand() * Math.PI * 2;
+        const d = r * (0.45 + rand() * 0.45);
+        ctx.globalAlpha = 0.9;
+        ctx.save();
+        ctx.translate(Math.cos(a) * d, Math.sin(a) * d);
+        ctx.rotate(rand() * Math.PI);
+        ctx.fillRect(-r * 0.07, -r * 0.05, r * 0.14, r * 0.1);
+        ctx.restore();
+      }
+    } else if (kind === "chili") {
+      // warm diffuse flush — heat, not injury: no dark core, orange-red hues
+      ctx.globalCompositeOperation = "multiply";
+      ctx.filter = `blur(${Math.max(2, r * 0.12)}px)`;
+      ctx.globalAlpha = 0.75;
+      let heat = ctx.createRadialGradient(0, 0, r * 0.05, 0, 0, r * 1.1);
+      heat.addColorStop(0, "rgba(232,72,32,0.55)");
+      heat.addColorStop(0.6, "rgba(240,110,50,0.35)");
+      heat.addColorStop(1, "rgba(240,140,80,0)");
+      ctx.fillStyle = heat;
+      fillEllipse(ctx, 0, 0, r * 1.15, r * 0.95);
+      ctx.globalAlpha = 0.5;
+      heat = ctx.createRadialGradient(0, 0, 1, 0, 0, r * 0.5);
+      heat.addColorStop(0, "rgba(250,90,30,0.5)");
+      heat.addColorStop(1, "rgba(250,90,30,0)");
+      ctx.fillStyle = heat;
+      fillEllipse(ctx, 0, 0, r * 0.55, r * 0.45);
+    } else if (kind === "tomato") {
       // pulpy orange-red star with radiating streaks and seeds
       ctx.globalAlpha = 0.82;
       ctx.fillStyle = "rgb(214,72,38)";

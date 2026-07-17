@@ -8,8 +8,12 @@ import { type AttackKind, type GameSettings, type GameStats, PunchGame } from "@
 const WEAPONS: Array<{ kind: AttackKind; glyph: string; label: string }> = [
   { kind: "punch", glyph: "🥊", label: "Punch" },
   { kind: "slap", glyph: "✋", label: "Slap" },
+  { kind: "mallet", glyph: "🔨", label: "Mallet" },
+  { kind: "fish", glyph: "🐟", label: "Fish" },
   { kind: "tomato", glyph: "🍅", label: "Tomato" },
   { kind: "egg", glyph: "🥚", label: "Egg" },
+  { kind: "pie", glyph: "🥧", label: "Pie" },
+  { kind: "chili", glyph: "🌶️", label: "Chili" },
 ];
 
 const SETTINGS_KEY = "beat-it-settings";
@@ -180,7 +184,7 @@ export function GameScreen({
       )}
 
       {/* weapon picker */}
-      <div className="absolute bottom-8 left-6 flex flex-col gap-2">
+      <div className="absolute bottom-8 left-6 grid grid-cols-2 gap-2">
         {WEAPONS.map((w) => (
           <button
             key={w.kind}
@@ -188,7 +192,7 @@ export function GameScreen({
             aria-label={w.label}
             title={w.label}
             onClick={() => setWeapon(w.kind)}
-            className={`flex size-14 items-center justify-center rounded-2xl border-2 text-3xl transition-transform ${
+            className={`flex size-12 items-center justify-center rounded-2xl border-2 text-2xl transition-transform ${
               weapon === w.kind
                 ? "border-red-600 bg-red-600/20 scale-110"
                 : "border-border bg-background/70 hover:scale-105"

@@ -130,7 +130,7 @@ export class Head3D {
     this.group.rotation.y = this.yaw + (this.swayEnabled ? Math.sin(this.elapsed * 0.7) * 0.09 : 0);
     this.group.rotation.x = this.pitch;
 
-    const s = Math.max(-0.5, Math.min(1, squash));
+    const s = Math.max(-0.5, Math.min(1.4, squash));
     const c2 = Math.cos(squashAngle) ** 2;
     const sx = 1 - 0.32 * s * c2 + 0.26 * s * (1 - c2);
     const sy = 1 - 0.32 * s * (1 - c2) + 0.26 * s * c2;

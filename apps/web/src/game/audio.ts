@@ -48,6 +48,63 @@ export class SoundPlayer {
     noise.start(t);
   }
 
+  /** Deep cartoon bonk for the mallet. */
+  bonk(strength = 1) {
+    if (this.muted) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const jitter = 0.9 + Math.random() * 0.2;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150 * jitter, t);
+    osc.frequency.exponentialRampToValueAtTime(58 * jitter, t + 0.22);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.7 * strength, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.3);
+
+    const over = ctx.createOscillator();
+    over.type = "triangle";
+    over.frequency.setValueAtTime(300 * jitter, t);
+    over.frequency.exponentialRampToValueAtTime(110, t + 0.12);
+    const overGain = ctx.createGain();
+    overGain.gain.setValueAtTime(0.2 * strength, t);
+    overGain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+    over.connect(overGain).connect(ctx.destination);
+    over.start(t);
+    over.stop(t + 0.15);
+  }
+
+  /** Wet fish thwap: slap crack layered with a plop. */
+  fish(strength = 1) {
+    this.slap(strength * 0.8);
+    this.splat();
+  }
+
+  /** Sizzle for the chili gag. */
+  sizzle() {
+    if (this.muted) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer(ctx, 0.35);
+    noise.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 2800;
+    filter.Q.value = 0.7;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start(t);
+    noise.stop(t + 0.4);
+  }
+
   /** Sharp bright crack for a slap. */
   slap(strength = 1) {
     if (this.muted) return;
