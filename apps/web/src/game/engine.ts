@@ -2,6 +2,7 @@ import Matter from "matter-js";
 
 import { SoundPlayer } from "./audio";
 import { ParticleSystem } from "./particles";
+import { FaceWarp } from "./warp";
 
 export interface GameStats {
   hits: number;
@@ -44,6 +45,7 @@ export class PunchGame {
 
   private particles = new ParticleSystem();
   private fists: Fist[] = [];
+  private warp = new FaceWarp();
 
   // damped-oscillator squash: positive = squashed, negative = overshoot stretch
   private squash = 0;
@@ -183,6 +185,7 @@ export class PunchGame {
     this.squash = 0;
     this.squashVel = 0;
     this.shakeMag = 0;
+    this.warp.reset();
     Matter.Body.setPosition(this.head, { ...this.mount });
     Matter.Body.setVelocity(this.head, { x: 0, y: 0 });
     Matter.Body.setAngularVelocity(this.head, 0);
@@ -212,6 +215,19 @@ export class PunchGame {
     this.squash = 1;
     this.squashVel = 0;
     this.squashAngle = dir;
+
+    // 2.5D dent: convert the impact into head-local face space and deform the mesh
+    const renderAngle = this.head.angle * 0.6;
+    const cosA = Math.cos(-renderAngle);
+    const sinA = Math.sin(-renderAngle);
+    const dx = impact.x - this.head.position.x;
+    const dy = impact.y - this.head.position.y;
+    const r = this.headRadius;
+    const lx = Math.max(-1.1, Math.min(1.1, (dx * cosA - dy * sinA) / (r * 0.88)));
+    const ly = Math.max(-1.1, Math.min(1.1, (dx * sinA + dy * cosA) / (r * 1.08)));
+    const dirLx = Math.cos(dir) * cosA - Math.sin(dir) * sinA;
+    const dirLy = Math.cos(dir) * sinA + Math.sin(dir) * cosA;
+    this.warp.punch(lx, ly, dirLx, dirLy, fist.strength);
     this.shakeMag = Math.min(30, this.shakeMag + 5 + 9 * fist.strength);
     this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90);
     this.sounds.punch(fist.strength);
@@ -255,6 +271,7 @@ export class PunchGame {
       this.emitStats();
     }
 
+    this.warp.update(dt);
     this.particles.update(dt);
     this.draw();
     this.rafId = requestAnimationFrame(this.frame);
@@ -368,6 +385,10 @@ export class PunchGame {
     ctx.translate(pos.x, pos.y + bob);
     ctx.rotate(this.head.angle * 0.6);
 
+    // fake yaw: fast sideways motion narrows the head, reading as a turn in depth
+    const tilt = Math.max(-0.14, Math.min(0.14, this.head.velocity.x * 0.006));
+    ctx.scale(1 - Math.abs(tilt), 1);
+
     // render-only squash along the impact axis
     const s = Math.max(-0.5, Math.min(1, this.squash));
     ctx.rotate(this.squashAngle);
@@ -376,8 +397,9 @@ export class PunchGame {
 
     const rx = r * 0.88;
     const ry = r * 1.08;
-    ctx.drawImage(this.face, -rx, -ry, rx * 2, ry * 2);
+    this.warp.draw(ctx, this.face, rx, ry);
     this.drawDamage(ctx, rx, ry);
+    this.drawShading(ctx, rx, ry);
     ctx.restore();
 
     // dizzy stars orbit outside the squashed transform so they stay crisp
@@ -393,6 +415,29 @@ export class PunchGame {
       }
       ctx.restore();
     }
+  }
+
+  /** Dome shading: top-left highlight + rim shadow so the face reads as 3D. */
+  private drawShading(ctx: CanvasRenderingContext2D, rx: number, ry: number) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    const highlight = ctx.createRadialGradient(-rx * 0.32, -ry * 0.38, rx * 0.05, -rx * 0.32, -ry * 0.38, rx * 1.15);
+    highlight.addColorStop(0, "rgba(255,255,255,0.16)");
+    highlight.addColorStop(0.55, "rgba(255,255,255,0.04)");
+    highlight.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = highlight;
+    ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
+
+    const rim = ctx.createRadialGradient(0, 0, ry * 0.5, 0, 0, ry * 1.02);
+    rim.addColorStop(0, "rgba(0,0,0,0)");
+    rim.addColorStop(0.78, "rgba(0,0,0,0.05)");
+    rim.addColorStop(1, "rgba(0,0,0,0.32)");
+    ctx.fillStyle = rim;
+    ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
+    ctx.restore();
   }
 
   /** Cartoon damage stickers, anchored to the face oval, keyed to hit thresholds. */
