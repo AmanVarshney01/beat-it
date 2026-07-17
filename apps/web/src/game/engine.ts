@@ -139,6 +139,11 @@ export class PunchGame {
     Matter.World.add(this.engine.world, [this.head, neck, center]);
   }
 
+  /** Landmark-derived flesh softness map; arrives async after the game starts. */
+  setFaceSoftness(map: Float32Array | null) {
+    if (map) this.warp.setSoftness(map);
+  }
+
   /** True when the point (canvas coords) is on the head — used for tap-to-punch. */
   hitTestHead(point: { x: number; y: number }): boolean {
     const dx = point.x - this.head.position.x;

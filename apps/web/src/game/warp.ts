@@ -21,20 +21,34 @@ export class FaceWarp {
   private oy = new Float32Array(VW * VH);
   private vx = new Float32Array(VW * VH);
   private vy = new Float32Array(VW * VH);
+  private softness = defaultSoftness();
   active = false;
+
+  /** Per-vertex flesh softness [0.2, 1] — cheeks squishy, forehead stiff. */
+  setSoftness(map: Float32Array) {
+    this.softness = map;
+  }
 
   /** Impact at (lx, ly) in [-1,1] face space, pushing along (dirX, dirY). */
   punch(lx: number, ly: number, dirX: number, dirY: number, strength: number) {
-    const amp = Math.min(0.5, 0.3 * strength) * 15;
+    const amp = Math.min(0.5, 0.3 * strength) * 19;
     for (let iy = 0; iy < VH; iy++) {
       for (let ix = 0; ix < VW; ix++) {
         const i = iy * VW + ix;
         const px = (ix / NX) * 2 - 1;
         const py = (iy / NY) * 2 - 1;
-        const d = Math.hypot(px - lx, py - ly);
-        const falloff = Math.exp(-((d / 0.55) ** 2));
-        this.vx[i] += dirX * amp * falloff;
-        this.vy[i] += dirY * amp * falloff;
+        const dx = px - lx;
+        const dy = py - ly;
+        const d = Math.hypot(dx, dy);
+        const soft = this.softness[i] ?? 1;
+        // dent: push along the punch direction near the impact
+        const dent = Math.exp(-((d / 0.55) ** 2));
+        // volume conservation: a ring of flesh around the dent bulges outward
+        const ring = Math.exp(-(((d - 0.85) / 0.32) ** 2));
+        const bx = d > 1e-4 ? dx / d : 0;
+        const by = d > 1e-4 ? dy / d : 0;
+        this.vx[i] += (dirX * dent + bx * 0.4 * ring) * amp * soft;
+        this.vy[i] += (dirY * dent + by * 0.4 * ring) * amp * soft;
       }
     }
     this.active = true;
@@ -93,6 +107,59 @@ export class FaceWarp {
       }
     }
   }
+}
+
+// canonical MediaPipe FaceMesh anchor indices
+const LM_RIGHT_CHEEK = 50;
+const LM_LEFT_CHEEK = 280;
+const LM_CHIN = 152;
+const LM_FOREHEAD = 10;
+
+/**
+ * Per-vertex softness from face landmarks (normalized [0,1] crop coords):
+ * Gaussian soft fields around the cheeks and chin, a stiff field around the
+ * forehead, everything clamped to [0.2, 1].
+ */
+export function buildSoftnessFromLandmarks(
+  landmarks: Array<{ x: number; y: number }>,
+): Float32Array | null {
+  const cheekR = landmarks[LM_RIGHT_CHEEK];
+  const cheekL = landmarks[LM_LEFT_CHEEK];
+  const chin = landmarks[LM_CHIN];
+  const forehead = landmarks[LM_FOREHEAD];
+  if (!cheekR || !cheekL || !chin || !forehead) return null;
+
+  const toFace = (p: { x: number; y: number }) => ({ x: p.x * 2 - 1, y: p.y * 2 - 1 });
+  const soften = [toFace(cheekR), toFace(cheekL), toFace(chin)];
+  const stiff = toFace(forehead);
+
+  const map = new Float32Array(VW * VH);
+  for (let iy = 0; iy < VH; iy++) {
+    for (let ix = 0; ix < VW; ix++) {
+      const px = (ix / NX) * 2 - 1;
+      const py = (iy / NY) * 2 - 1;
+      let s = 0.5;
+      for (const a of soften) {
+        s += 0.5 * Math.exp(-((Math.hypot(px - a.x, py - a.y) / 0.5) ** 2));
+      }
+      s -= 0.45 * Math.exp(-((Math.hypot(px - stiff.x, py - stiff.y) / 0.6) ** 2));
+      map[iy * VW + ix] = Math.max(0.2, Math.min(1, s));
+    }
+  }
+  return map;
+}
+
+/** Fallback when no landmarks: lower face progressively softer than the brow. */
+export function defaultSoftness(): Float32Array {
+  const map = new Float32Array(VW * VH);
+  for (let iy = 0; iy < VH; iy++) {
+    for (let ix = 0; ix < VW; ix++) {
+      const py = (iy / NY) * 2 - 1;
+      const t = Math.max(0, Math.min(1, (py + 0.4) / 1.1));
+      map[iy * VW + ix] = 0.45 + 0.5 * t;
+    }
+  }
+  return map;
 }
 
 /** Affine-map a source triangle of img onto a destination triangle. */

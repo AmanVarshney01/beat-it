@@ -6,8 +6,9 @@ import { GameScreen } from "@/components/game-screen";
 import Loader from "@/components/loader";
 import { ManualCrop } from "@/components/manual-crop";
 import { UploadScreen } from "@/components/upload-screen";
+import { buildSoftnessFromLandmarks } from "@/game/warp";
 import { cropFaceOval, regionFromDetection, type OvalRegion } from "@/lib/face/crop";
-import { detectFace } from "@/lib/face/detector";
+import { detectFace, getFaceLandmarks } from "@/lib/face/detector";
 
 export const Route = createFileRoute("/")({
   component: HomeComponent,
@@ -21,13 +22,25 @@ type Phase =
 
 function HomeComponent() {
   const [phase, setPhase] = useState<Phase>({ name: "upload" });
+  const [softness, setSoftness] = useState<Float32Array | null>(null);
+
+  // enter the game immediately; the landmark-based flesh map upgrades the
+  // deformation asynchronously when (and if) it resolves
+  const startGame = (face: HTMLCanvasElement) => {
+    setSoftness(null);
+    setPhase({ name: "game", face });
+    void getFaceLandmarks(face).then((landmarks) => {
+      const map = landmarks ? buildSoftnessFromLandmarks(landmarks) : null;
+      if (map) setSoftness(map);
+    });
+  };
 
   const handleImage = async (image: HTMLImageElement) => {
     setPhase({ name: "detecting" });
     try {
       const face = await detectFace(image);
       if (face) {
-        setPhase({ name: "game", face: cropFaceOval(image, regionFromDetection(face)) });
+        startGame(cropFaceOval(image, regionFromDetection(face)));
       } else {
         setPhase({ name: "manual", image });
       }
@@ -39,7 +52,7 @@ function HomeComponent() {
   };
 
   const handleManualConfirm = (image: HTMLImageElement, region: OvalRegion) => {
-    setPhase({ name: "game", face: cropFaceOval(image, region) });
+    startGame(cropFaceOval(image, region));
   };
 
   switch (phase.name) {
@@ -61,6 +74,12 @@ function HomeComponent() {
         />
       );
     case "game":
-      return <GameScreen face={phase.face} onNewFace={() => setPhase({ name: "upload" })} />;
+      return (
+        <GameScreen
+          face={phase.face}
+          softness={softness}
+          onNewFace={() => setPhase({ name: "upload" })}
+        />
+      );
   }
 }

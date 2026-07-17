@@ -6,9 +6,11 @@ import { type GameStats, PunchGame } from "@/game/engine";
 
 export function GameScreen({
   face,
+  softness,
   onNewFace,
 }: {
   face: HTMLCanvasElement;
+  softness: Float32Array | null;
   onNewFace: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,6 +32,10 @@ export function GameScreen({
   useEffect(() => {
     if (gameRef.current) gameRef.current.sounds.muted = muted;
   }, [muted]);
+
+  useEffect(() => {
+    gameRef.current?.setFaceSoftness(softness);
+  }, [softness]);
 
   return (
     // fullscreen overlay above the app shell — the face is the whole show

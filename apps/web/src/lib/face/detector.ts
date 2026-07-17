@@ -1,4 +1,4 @@
-import type { FaceDetector } from "@mediapipe/tasks-vision";
+import type { FaceDetector, FaceLandmarker } from "@mediapipe/tasks-vision";
 
 export interface DetectedFace {
   /** face bounding box in source-image pixels */
@@ -22,6 +22,39 @@ async function getDetector(): Promise<FaceDetector> {
     });
   })();
   return detectorPromise;
+}
+
+let landmarkerPromise: Promise<FaceLandmarker> | null = null;
+
+async function getLandmarker(): Promise<FaceLandmarker> {
+  landmarkerPromise ??= (async () => {
+    const { FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
+    const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
+    return FaceLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: "/mediapipe/face_landmarker.task" },
+      runningMode: "IMAGE",
+      numFaces: 1,
+    });
+  })();
+  return landmarkerPromise;
+}
+
+/**
+ * 468 face landmarks in normalized [0,1] coords of the given canvas, or null
+ * when no face is found (e.g. a manual crop of something that isn't a face).
+ */
+export async function getFaceLandmarks(
+  face: HTMLCanvasElement,
+): Promise<Array<{ x: number; y: number }> | null> {
+  try {
+    const landmarker = await getLandmarker();
+    const result = landmarker.detect(face);
+    const landmarks = result.faceLandmarks[0];
+    return landmarks && landmarks.length > 0 ? landmarks : null;
+  } catch (error) {
+    console.warn("Face landmark detection unavailable", error);
+    return null;
+  }
 }
 
 /** Returns the highest-confidence face, or null if none was found. */
