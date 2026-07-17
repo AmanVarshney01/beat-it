@@ -1,32 +1,40 @@
-import type { Landmark3 } from "./face3d/head3d";
-
 /**
- * Paints damage directly into a working copy of the face bitmap so bruises
- * live ON the skin: they wrap and light with the 3D mesh, and the 2D warp
- * draws the same canvas. Repaints only on damage-stage changes, never per
- * frame. Tone line: bruising and discoloration only — no blood, cuts or gore.
+ * Paints damage directly into a working copy of the face bitmap so marks live
+ * ON the skin: they wrap and light with the 3D mesh, and the 2D warp draws
+ * the same canvas. Marks are located at the exact impact point; repaints
+ * happen per hit (bounded by mark caps), never per frame.
+ *
+ * Tone line: bruising and food splats only — no blood, cuts, burns or gore.
  */
 
-interface Anchor {
+interface BruiseMark {
   x: number; // px in face-canvas space
   y: number;
-  r: number; // bruise radius px
+  r: number;
+  intensity: number;
+  seed: number;
 }
 
-// canonical FaceMesh indices
-const LM_RIGHT_EYE_LOWER = 145;
-const LM_LEFT_CHEEK = 280;
-const LM_LEFT_BROW = 334;
-const LM_CHIN = 152;
+interface SplatMark {
+  x: number;
+  y: number;
+  kind: "tomato" | "egg";
+  seed: number;
+}
+
+const MAX_BRUISES = 20;
+const MAX_SPLATS = 12;
 
 export class DamagePainter {
   /** The canvas the game should render/texture from. Same size as the base. */
   readonly canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private base: HTMLCanvasElement;
-  private anchors: { eye: Anchor; cheek: Anchor; brow: Anchor; jaw: Anchor };
+  private bruises: BruiseMark[] = [];
+  private splats: SplatMark[] = [];
+  private seedCounter = 1;
 
-  constructor(base: HTMLCanvasElement, landmarks: Landmark3[] | null) {
+  constructor(base: HTMLCanvasElement) {
     this.base = base;
     this.canvas = document.createElement("canvas");
     this.canvas.width = base.width;
@@ -34,66 +42,72 @@ export class DamagePainter {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas 2D not supported");
     this.ctx = ctx;
-
-    const w = base.width;
-    const h = base.height;
-    const at = (lm: Landmark3 | undefined, fx: number, fy: number, fr: number): Anchor => ({
-      x: (lm ? lm.x : fx) * w,
-      y: (lm ? lm.y : fy) * h,
-      r: fr * w,
-    });
-    this.anchors = {
-      eye: at(landmarks?.[LM_RIGHT_EYE_LOWER], 0.33, 0.42, 0.16),
-      cheek: at(landmarks?.[LM_LEFT_CHEEK], 0.7, 0.58, 0.14),
-      brow: at(landmarks?.[LM_LEFT_BROW], 0.68, 0.33, 0.12),
-      jaw: at(landmarks?.[LM_CHIN], 0.5, 0.85, 0.13),
-    };
-    this.paint(0);
+    this.repaint();
   }
 
-  /** Repaint the working canvas for a damage stage (cumulative). */
-  paint(stage: number) {
+  /** Impact attack at (u, v) in [0,1] texture coords: bruise there, or deepen a nearby one. */
+  hit(u: number, v: number, strength: number) {
+    const x = u * this.canvas.width;
+    const y = v * this.canvas.height;
+    const r = this.canvas.width * (0.1 + 0.05 * Math.min(strength, 2));
+    const near = this.bruises.find((b) => Math.hypot(b.x - x, b.y - y) < b.r * 0.7);
+    if (near) {
+      near.intensity = Math.min(2, near.intensity + 0.3 * strength);
+      near.r = Math.min(this.canvas.width * 0.22, near.r * 1.06);
+    } else {
+      this.bruises.push({ x, y, r, intensity: 0.55 + 0.35 * strength, seed: this.seedCounter++ });
+      if (this.bruises.length > MAX_BRUISES) this.bruises.shift();
+    }
+    this.repaint();
+  }
+
+  /** Food attack at (u, v): paint a splat. */
+  splat(u: number, v: number, kind: "tomato" | "egg") {
+    this.splats.push({
+      x: u * this.canvas.width,
+      y: v * this.canvas.height,
+      kind,
+      seed: this.seedCounter++,
+    });
+    if (this.splats.length > MAX_SPLATS) this.splats.shift();
+    this.repaint();
+  }
+
+  clear() {
+    this.bruises = [];
+    this.splats = [];
+    this.repaint();
+  }
+
+  private repaint() {
     const { ctx } = this;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
+    ctx.filter = "none";
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.drawImage(this.base, 0, 0);
     ctx.restore();
-    if (stage <= 0) return;
-
-    const boost = stage >= 4 ? 1.45 : 1;
-    const { eye, cheek, brow, jaw } = this.anchors;
-    // fresh black eye first, older bruises join at later thresholds
-    this.bruise(eye, 0.36, boost, 1); // socket: offset slightly below the eye
-    if (stage >= 2) this.bruise(cheek, 0, 0.9 * boost, 2);
-    if (stage >= 3) {
-      this.bruise(brow, -0.2, 0.8 * boost, 3);
-      this.bruise({ ...jaw, y: jaw.y - jaw.r * 0.4 }, 0.1, 0.75 * boost, 4);
-    }
+    for (const b of this.bruises) this.paintBruise(b);
+    for (const s of this.splats) this.paintSplat(s);
   }
 
   /**
    * One bruise: yellow-green aged halo → red-violet body → dark core →
-   * seeded mottling, all multiplied over the skin so tone shows through.
+   * blurred mottling, multiplied over the skin so tone shows through.
    */
-  private bruise(anchor: Anchor, yShift: number, intensity: number, seed: number) {
+  private paintBruise({ x, y, r, intensity, seed }: BruiseMark) {
     const { ctx } = this;
-    const x = anchor.x;
-    const y = anchor.y + anchor.r * yShift;
-    const r = anchor.r;
-    const rand = mulberry32(seed * 7919 + Math.floor(x + y));
+    const rand = mulberry32(seed * 7919);
     const tilt = (rand() - 0.5) * 0.9;
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(tilt);
     ctx.globalCompositeOperation = "multiply";
-    // soften every layer so mottling reads as diffuse discoloration, not dots
     ctx.filter = `blur(${Math.max(2, r * 0.09)}px)`;
 
-    // aged yellow-green halo
     ctx.globalAlpha = Math.min(1, 0.5 * intensity);
     let g = ctx.createRadialGradient(0, 0, r * 0.55, 0, 0, r * 1.35);
     g.addColorStop(0, "rgba(255,255,255,0)");
@@ -102,7 +116,6 @@ export class DamagePainter {
     ctx.fillStyle = g;
     fillEllipse(ctx, 0, 0, r * 1.4, r * 1.15);
 
-    // main red-violet body
     ctx.globalAlpha = Math.min(1, 0.85 * intensity);
     g = ctx.createRadialGradient(0, 0, r * 0.08, 0, 0, r);
     g.addColorStop(0, "rgba(120,38,64,0.72)");
@@ -111,7 +124,6 @@ export class DamagePainter {
     ctx.fillStyle = g;
     fillEllipse(ctx, 0, 0, r * 1.05, r * 0.85);
 
-    // deep core
     ctx.globalAlpha = Math.min(1, 0.7 * intensity);
     g = ctx.createRadialGradient(-r * 0.1, -r * 0.05, 1, -r * 0.1, -r * 0.05, r * 0.42);
     g.addColorStop(0, "rgba(58,16,44,0.6)");
@@ -119,7 +131,6 @@ export class DamagePainter {
     ctx.fillStyle = g;
     fillEllipse(ctx, -r * 0.1, -r * 0.05, r * 0.5, r * 0.4);
 
-    // mottling: small irregular pools of discoloration
     const HUES = ["rgba(104,44,110,", "rgba(128,40,60,", "rgba(70,60,130,", "rgba(150,110,70,"];
     for (let i = 0; i < 16; i++) {
       const a = rand() * Math.PI * 2;
@@ -128,6 +139,74 @@ export class DamagePainter {
       ctx.globalAlpha = (0.08 + rand() * 0.1) * intensity;
       ctx.fillStyle = `${HUES[Math.floor(rand() * HUES.length)]}1)`;
       fillEllipse(ctx, Math.cos(a) * dist, Math.sin(a) * dist * 0.8, mr * (0.8 + rand() * 0.6), mr);
+    }
+    ctx.restore();
+  }
+
+  /** Food splat: unmistakably tomato pulp or broken egg, never blood-like. */
+  private paintSplat({ x, y, kind, seed }: SplatMark) {
+    const { ctx } = this;
+    const rand = mulberry32(seed * 104729);
+    const r = this.canvas.width * 0.11;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rand() * Math.PI * 2);
+    ctx.filter = `blur(${Math.max(1, r * 0.03)}px)`;
+
+    if (kind === "tomato") {
+      // pulpy orange-red star with radiating streaks and seeds
+      ctx.globalAlpha = 0.82;
+      ctx.fillStyle = "rgb(214,72,38)";
+      fillEllipse(ctx, 0, 0, r * 0.75, r * 0.65);
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2 + rand() * 0.5;
+        const len = r * (0.7 + rand() * 0.8);
+        ctx.save();
+        ctx.rotate(a);
+        ctx.globalAlpha = 0.7;
+        fillEllipse(ctx, len * 0.55, 0, len * 0.45, r * (0.1 + rand() * 0.1));
+        ctx.restore();
+      }
+      ctx.fillStyle = "rgb(238,120,60)";
+      ctx.globalAlpha = 0.65;
+      fillEllipse(ctx, 0, 0, r * 0.45, r * 0.4);
+      ctx.fillStyle = "rgb(240,214,130)"; // seeds
+      for (let i = 0; i < 8; i++) {
+        const a = rand() * Math.PI * 2;
+        const d = rand() * r * 0.6;
+        ctx.globalAlpha = 0.9;
+        fillEllipse(ctx, Math.cos(a) * d, Math.sin(a) * d, r * 0.05, r * 0.03);
+      }
+    } else {
+      // broken egg: translucent white splat, yolk disc, shell chips
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = "rgb(245,242,230)";
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + rand() * 0.6;
+        const len = r * (0.5 + rand() * 0.7);
+        ctx.save();
+        ctx.rotate(a);
+        fillEllipse(ctx, len * 0.5, 0, len * 0.5, r * (0.14 + rand() * 0.12));
+        ctx.restore();
+      }
+      fillEllipse(ctx, 0, 0, r * 0.7, r * 0.6);
+      ctx.globalAlpha = 0.92;
+      const yolk = ctx.createRadialGradient(-r * 0.05, -r * 0.05, 1, 0, 0, r * 0.34);
+      yolk.addColorStop(0, "rgb(252,204,80)");
+      yolk.addColorStop(1, "rgb(238,160,40)");
+      ctx.fillStyle = yolk;
+      fillEllipse(ctx, 0, 0, r * 0.34, r * 0.3);
+      ctx.fillStyle = "rgb(250,248,240)"; // shell chips
+      for (let i = 0; i < 4; i++) {
+        const a = rand() * Math.PI * 2;
+        const d = r * (0.4 + rand() * 0.5);
+        ctx.globalAlpha = 0.85;
+        ctx.save();
+        ctx.translate(Math.cos(a) * d, Math.sin(a) * d);
+        ctx.rotate(rand() * Math.PI);
+        ctx.fillRect(-r * 0.06, -r * 0.04, r * 0.12, r * 0.08);
+        ctx.restore();
+      }
     }
     ctx.restore();
   }

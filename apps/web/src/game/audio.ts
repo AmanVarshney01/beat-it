@@ -48,6 +48,69 @@ export class SoundPlayer {
     noise.start(t);
   }
 
+  /** Sharp bright crack for a slap. */
+  slap(strength = 1) {
+    if (this.muted) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const jitter = 0.9 + Math.random() * 0.2;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer(ctx, 0.09);
+    noise.playbackRate.value = 1.6 * jitter;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 1200;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.55 * strength, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start(t);
+
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(900 * jitter, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.05);
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0.18 * strength, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc.connect(oscGain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.07);
+  }
+
+  /** Wet plop for food splats. */
+  splat() {
+    if (this.muted) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const jitter = 0.85 + Math.random() * 0.3;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer(ctx, 0.16);
+    noise.playbackRate.value = 0.6 * jitter;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(900 * jitter, t);
+    filter.frequency.exponentialRampToValueAtTime(200, t + 0.14);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.5, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start(t);
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(300 * jitter, t);
+    osc.frequency.exponentialRampToValueAtTime(90, t + 0.1);
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0.22, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    osc.connect(oscGain).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.13);
+  }
+
   /** Short airy whoosh for the incoming fist. */
   whoosh() {
     if (this.muted) return;

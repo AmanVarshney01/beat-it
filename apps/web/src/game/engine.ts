@@ -12,17 +12,34 @@ export interface GameStats {
   damageStage: number;
 }
 
+export type AttackKind = "punch" | "slap" | "tomato" | "egg";
+
+export interface GameSettings {
+  shake: boolean;
+  particles: boolean;
+  damage: boolean;
+  dizzyStars: boolean;
+  sway: boolean;
+}
+
 interface Fist {
+  attack: AttackKind;
   from: { x: number; y: number };
   to: { x: number; y: number };
   angle: number;
-  t: number; // 0..1 through the whole punch
+  t: number; // 0..1 through the whole attack
+  duration: number; // seconds, impact at IMPACT_T
   strength: number;
   hasHit: boolean;
 }
 
-const FIST_DURATION = 0.24; // seconds, impact at IMPACT_T
 const IMPACT_T = 0.5;
+const ATTACK_DURATION: Record<AttackKind, number> = {
+  punch: 0.24,
+  slap: 0.3,
+  tomato: 0.45,
+  egg: 0.45,
+};
 const COMBO_WINDOW = 1.0; // seconds between hits to keep a combo alive
 export const DAMAGE_THRESHOLDS = [5, 15, 30, 50];
 
@@ -73,6 +90,14 @@ export class PunchGame {
   private squashVel = 0;
   private squashAngle = 0;
 
+  private settings: GameSettings = {
+    shake: true,
+    particles: true,
+    damage: true,
+    dizzyStars: true,
+    sway: true,
+  };
+
   private shakeMag = 0;
   private shakeX = 0;
   private shakeY = 0;
@@ -97,7 +122,7 @@ export class PunchGame {
     this.onStats = opts.onStats;
 
     // all rendering (2D warp and 3D texture) reads the damage-painted canvas
-    this.damage = new DamagePainter(opts.face, opts.landmarks);
+    this.damage = new DamagePainter(opts.face);
     this.face = this.damage.canvas;
     this.neckColor = sampleSkin(opts.face);
 
@@ -181,6 +206,11 @@ export class PunchGame {
     Matter.World.add(this.engine.world, [this.head, neck, center]);
   }
 
+  updateSettings(partial: Partial<GameSettings>) {
+    Object.assign(this.settings, partial);
+    if (this.head3d) this.head3d.swayEnabled = this.settings.sway;
+  }
+
   /** True when the point (canvas coords) is on the head — used for tap-to-punch. */
   hitTestHead(point: { x: number; y: number }): boolean {
     const dx = point.x - this.head.position.x;
@@ -188,29 +218,46 @@ export class PunchGame {
     return Math.hypot(dx, dy) <= this.headRadius * 1.2;
   }
 
-  /** Throw a punch. Without a target, aims at a random spot on the head. */
-  punch(target?: { x: number; y: number }) {
+  /** Launch the selected attack. Without a target, aims at a random head spot. */
+  punch(target?: { x: number; y: number }, attack: AttackKind = "punch") {
     const headPos = this.head.position;
+    const r = this.headRadius;
+    const w = this.bg.clientWidth;
+    const h = this.bg.clientHeight;
     const to = target ?? {
-      x: headPos.x + (Math.random() - 0.5) * this.headRadius,
-      y: headPos.y + (Math.random() - 0.5) * this.headRadius * 0.8,
-    };
-    const fromAngle = Math.atan2(to.y - headPos.y, to.x - headPos.x);
-    // fist flies in along the impact direction, from ~4 head-radii out
-    const dist = this.headRadius * 4.2;
-    const from = {
-      x: to.x + Math.cos(fromAngle) * dist,
-      y: to.y + Math.sin(fromAngle) * dist,
+      x: headPos.x + (Math.random() - 0.5) * r,
+      y: headPos.y + (Math.random() - 0.5) * r * 0.8,
     };
     const critical = Math.random() < 0.08;
     const strength = critical ? 1.9 : 0.8 + Math.random() * 0.5;
 
-    // concurrent fists so button-mashing never drops an input
+    let from: { x: number; y: number };
+    let angle: number;
+    if (attack === "slap") {
+      // open hand sweeps in horizontally from the target's side of the screen
+      const fromLeft = to.x <= headPos.x;
+      from = { x: fromLeft ? -r * 1.6 : w + r * 1.6, y: to.y };
+      angle = fromLeft ? 0 : Math.PI;
+    } else if (attack === "tomato" || attack === "egg") {
+      // hurled from the viewer: arcs up from the bottom edge
+      from = { x: to.x + (Math.random() - 0.5) * w * 0.25, y: h + r * 0.6 };
+      angle = Math.atan2(to.y - from.y, to.x - from.x);
+    } else {
+      // fist flies in along the impact direction, from ~4 head-radii out
+      const fromAngle = Math.atan2(to.y - headPos.y, to.x - headPos.x);
+      const dist = r * 4.2;
+      from = { x: to.x + Math.cos(fromAngle) * dist, y: to.y + Math.sin(fromAngle) * dist };
+      angle = Math.atan2(headPos.y - to.y, headPos.x - to.x);
+    }
+
+    // concurrent attacks so button-mashing never drops an input
     this.fists.push({
+      attack,
       from,
       to,
-      angle: Math.atan2(headPos.y - to.y, headPos.x - to.x),
+      angle,
       t: 0,
+      duration: ATTACK_DURATION[attack],
       strength,
       hasHit: false,
     });
@@ -228,7 +275,7 @@ export class PunchGame {
     this.squashVel = 0;
     this.shakeMag = 0;
     this.warp.reset();
-    this.damage.paint(0);
+    this.damage.clear();
     this.head3d?.reset();
     this.head3d?.refreshTexture();
     Matter.Body.setPosition(this.head, { ...this.mount });
@@ -249,19 +296,24 @@ export class PunchGame {
   private landPunch(fist: Fist) {
     const impact = fist.to;
     const dir = fist.angle;
+    const isFood = fist.attack === "tomato" || fist.attack === "egg";
+    const isSlap = fist.attack === "slap";
+    // food knocks are soft; slaps hit harder sideways
+    const impulse = isFood ? 6 : isSlap ? 20 : 16;
 
     Matter.Body.setVelocity(this.head, {
-      x: this.head.velocity.x + Math.cos(dir) * 16 * fist.strength,
-      y: this.head.velocity.y + Math.sin(dir) * 16 * fist.strength - 3,
+      x: this.head.velocity.x + Math.cos(dir) * impulse * fist.strength,
+      y: this.head.velocity.y + Math.sin(dir) * impulse * fist.strength - (isFood ? 1 : 3),
     });
     const spin = (impact.y < this.head.position.y ? 1 : -1) * Math.sign(Math.cos(dir) || 1);
-    Matter.Body.setAngularVelocity(this.head, spin * (0.12 + 0.1 * fist.strength));
+    const spinScale = isSlap ? 0.3 : isFood ? 0.06 : 0.12;
+    Matter.Body.setAngularVelocity(this.head, spin * (spinScale + 0.1 * fist.strength));
 
-    this.squash = 1;
+    this.squash = isFood ? 0.4 : 1;
     this.squashVel = 0;
     this.squashAngle = dir;
 
-    // 2.5D dent: convert the impact into head-local face space and deform the mesh
+    // convert the impact into head-local face space for dent + located damage
     const renderAngle = this.head.angle * 0.6;
     const cosA = Math.cos(-renderAngle);
     const sinA = Math.sin(-renderAngle);
@@ -272,24 +324,39 @@ export class PunchGame {
     const ly = Math.max(-1.1, Math.min(1.1, (dx * sinA + dy * cosA) / (r * 1.08)));
     const dirLx = Math.cos(dir) * cosA - Math.sin(dir) * sinA;
     const dirLy = Math.cos(dir) * sinA + Math.sin(dir) * cosA;
+    const dentStrength = isFood ? fist.strength * 0.35 : isSlap ? fist.strength * 1.2 : fist.strength;
     if (this.head3d) {
-      this.head3d.punch(lx, ly, dirLx, dirLy, fist.strength);
+      this.head3d.punch(lx, ly, dirLx, dirLy, dentStrength);
     } else {
-      this.warp.punch(lx, ly, dirLx, dirLy, fist.strength);
+      this.warp.punch(lx, ly, dirLx, dirLy, dentStrength);
     }
-    this.shakeMag = Math.min(30, this.shakeMag + 5 + 9 * fist.strength);
-    this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90);
-    this.sounds.punch(fist.strength);
+
+    // damage lands exactly where the attack hit
+    if (this.settings.damage) {
+      const u = Math.max(0.03, Math.min(0.97, (lx + 1) / 2));
+      const v = Math.max(0.03, Math.min(0.97, (ly + 1) / 2));
+      if (isFood) {
+        this.damage.splat(u, v, fist.attack as "tomato" | "egg");
+      } else {
+        this.damage.hit(u, v, fist.strength);
+      }
+      this.head3d?.refreshTexture();
+    }
+
+    if (this.settings.shake) {
+      this.shakeMag = Math.min(30, this.shakeMag + (isFood ? 3 : 5) + 9 * fist.strength * (isFood ? 0.4 : 1));
+    }
+    if (this.settings.particles) {
+      this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90);
+    }
+    if (isFood) this.sounds.splat();
+    else if (isSlap) this.sounds.slap(fist.strength);
+    else this.sounds.punch(fist.strength);
 
     const now = this.elapsed;
     this.combo = now - this.lastHitAt <= COMBO_WINDOW ? this.combo + 1 : 1;
     this.lastHitAt = now;
-    const stageBefore = this.damageStage;
     this.hits += 1;
-    if (this.damageStage !== stageBefore) {
-      this.damage.paint(this.damageStage);
-      this.head3d?.refreshTexture();
-    }
     if (this.combo > 0 && this.combo % 5 === 0) this.sounds.comboDing(this.combo / 5);
     this.emitStats();
   }
@@ -304,7 +371,7 @@ export class PunchGame {
 
     for (const fist of this.fists) {
       const before = fist.t;
-      fist.t += dt / FIST_DURATION;
+      fist.t += dt / fist.duration;
       if (!fist.hasHit && before < IMPACT_T && fist.t >= IMPACT_T) {
         fist.hasHit = true;
         this.landPunch(fist);
@@ -384,7 +451,7 @@ export class PunchGame {
     const r = this.headRadius;
     const pos = this.head.position;
     const ry = r * 1.08;
-    if (this.damageStage >= 4) {
+    if (this.settings.dizzyStars && this.damageStage >= 4) {
       ctx.save();
       ctx.font = `${r * 0.34}px sans-serif`;
       ctx.textAlign = "center";
@@ -531,19 +598,37 @@ export class PunchGame {
   private drawFist(ctx: CanvasRenderingContext2D, fist: Fist) {
     // in fast (0 → IMPACT_T), retract slower (IMPACT_T → 1)
     const t = fist.t;
-    const travel = t < IMPACT_T ? easeInCubic(t / IMPACT_T) : 1 - easeOutCubic((t - IMPACT_T) / (1 - IMPACT_T)) * 0.9;
-    const x = fist.from.x + (fist.to.x - fist.from.x) * travel;
-    const y = fist.from.y + (fist.to.y - fist.from.y) * travel;
-    const size = this.headRadius * 1.15;
+    const isFood = fist.attack === "tomato" || fist.attack === "egg";
+    // food doesn't retract — it disappears into the splat
+    const travel = t < IMPACT_T
+      ? easeInCubic(t / IMPACT_T)
+      : isFood
+        ? 1
+        : 1 - easeOutCubic((t - IMPACT_T) / (1 - IMPACT_T)) * 0.9;
+    if (isFood && t >= IMPACT_T) return;
+    let x = fist.from.x + (fist.to.x - fist.from.x) * travel;
+    let y = fist.from.y + (fist.to.y - fist.from.y) * travel;
+
+    let glyph = "🥊";
+    let size = this.headRadius * 1.15;
+    let rotation = fist.angle + Math.PI * 0.75;
+    if (fist.attack === "slap") {
+      glyph = "✋";
+      rotation = fist.angle + Math.PI / 2; // fingers lead the sweep
+    } else if (isFood) {
+      glyph = fist.attack === "tomato" ? "🍅" : "🥚";
+      size = this.headRadius * 0.5;
+      rotation = t * 14; // tumbling through the air
+      y -= Math.sin(travel * Math.PI) * this.headRadius * 1.2; // arc
+    }
 
     ctx.save();
     ctx.translate(x, y);
-    // glove emoji points up-left by default; rotate it to face the head
-    ctx.rotate(fist.angle + Math.PI * 0.75);
+    ctx.rotate(rotation);
     ctx.font = `${size}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("🥊", 0, 0);
+    ctx.fillText(glyph, 0, 0);
     ctx.restore();
   }
 }

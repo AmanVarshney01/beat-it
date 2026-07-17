@@ -29,6 +29,9 @@ const SETTLE_EPS = 0.0008;
  * group scale maps it to screen pixels.
  */
 export class Head3D {
+  /** Idle sway toggle (settings-controlled). */
+  swayEnabled = true;
+
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
@@ -124,7 +127,7 @@ export class Head3D {
   ) {
     this.group.position.set(px - this.cssW / 2 + shakeX, -(py - this.cssH / 2 + shakeY), 0);
     this.group.rotation.z = -angle;
-    this.group.rotation.y = this.yaw + Math.sin(this.elapsed * 0.7) * 0.09;
+    this.group.rotation.y = this.yaw + (this.swayEnabled ? Math.sin(this.elapsed * 0.7) * 0.09 : 0);
     this.group.rotation.x = this.pitch;
 
     const s = Math.max(-0.5, Math.min(1, squash));
