@@ -22,7 +22,7 @@ Greenfield project. The app is a single-page browser game with three phases: upl
 
 ## Decisions
 
-1. **Vite + React + TypeScript, with the game scene on a single `<canvas>`.**
+1. **Vite + React + TypeScript, with the game scene on a single `<canvas>`.** _(Realized via Better-T-Stack: bun + turborepo monorepo, app in `apps/web` on TanStack Router + Vite, shared shadcn-style UI in `packages/ui`.)_
    React owns app state and chrome (upload screen, buttons, counters); the game scene renders imperatively in a `requestAnimationFrame` loop on one canvas. Alternative considered: rendering the scene in React/DOM with CSS transforms — simpler, but screen shake, particles, and per-frame physics fight React's render model. A game-engine (Phaser/Pixi) was also considered but is overkill for one scene.
 
 2. **MediaPipe `@mediapipe/tasks-vision` FaceDetector for detection, run once per upload.**

@@ -18,13 +18,14 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
       },
       {
         name: "description",
-        content: "beat-it is a web application",
+        content: "Upload a face, mount it on the dummy, punch your stress away.",
       },
     ],
     links: [
       {
         rel: "icon",
-        href: "/favicon.ico",
+        href: "/favicon.svg",
+        type: "image/svg+xml",
       },
     ],
   }),
