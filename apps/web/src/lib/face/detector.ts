@@ -40,12 +40,13 @@ async function getLandmarker(): Promise<FaceLandmarker> {
 }
 
 /**
- * 468 face landmarks in normalized [0,1] coords of the given canvas, or null
- * when no face is found (e.g. a manual crop of something that isn't a face).
+ * 468 face landmarks in normalized [0,1] coords of the given canvas (z is
+ * relative depth, negative toward the viewer), or null when no face is found
+ * (e.g. a manual crop of something that isn't a face).
  */
 export async function getFaceLandmarks(
   face: HTMLCanvasElement,
-): Promise<Array<{ x: number; y: number }> | null> {
+): Promise<Array<{ x: number; y: number; z: number }> | null> {
   try {
     const landmarker = await getLandmarker();
     const result = landmarker.detect(face);

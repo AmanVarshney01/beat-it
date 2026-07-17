@@ -24,11 +24,6 @@ export class FaceWarp {
   private softness = defaultSoftness();
   active = false;
 
-  /** Per-vertex flesh softness [0.2, 1] — cheeks squishy, forehead stiff. */
-  setSoftness(map: Float32Array) {
-    this.softness = map;
-  }
-
   /** Impact at (lx, ly) in [-1,1] face space, pushing along (dirX, dirY). */
   punch(lx: number, ly: number, dirX: number, dirY: number, strength: number) {
     const amp = Math.min(0.5, 0.3 * strength) * 19;
@@ -109,48 +104,8 @@ export class FaceWarp {
   }
 }
 
-// canonical MediaPipe FaceMesh anchor indices
-const LM_RIGHT_CHEEK = 50;
-const LM_LEFT_CHEEK = 280;
-const LM_CHIN = 152;
-const LM_FOREHEAD = 10;
-
-/**
- * Per-vertex softness from face landmarks (normalized [0,1] crop coords):
- * Gaussian soft fields around the cheeks and chin, a stiff field around the
- * forehead, everything clamped to [0.2, 1].
- */
-export function buildSoftnessFromLandmarks(
-  landmarks: Array<{ x: number; y: number }>,
-): Float32Array | null {
-  const cheekR = landmarks[LM_RIGHT_CHEEK];
-  const cheekL = landmarks[LM_LEFT_CHEEK];
-  const chin = landmarks[LM_CHIN];
-  const forehead = landmarks[LM_FOREHEAD];
-  if (!cheekR || !cheekL || !chin || !forehead) return null;
-
-  const toFace = (p: { x: number; y: number }) => ({ x: p.x * 2 - 1, y: p.y * 2 - 1 });
-  const soften = [toFace(cheekR), toFace(cheekL), toFace(chin)];
-  const stiff = toFace(forehead);
-
-  const map = new Float32Array(VW * VH);
-  for (let iy = 0; iy < VH; iy++) {
-    for (let ix = 0; ix < VW; ix++) {
-      const px = (ix / NX) * 2 - 1;
-      const py = (iy / NY) * 2 - 1;
-      let s = 0.5;
-      for (const a of soften) {
-        s += 0.5 * Math.exp(-((Math.hypot(px - a.x, py - a.y) / 0.5) ** 2));
-      }
-      s -= 0.45 * Math.exp(-((Math.hypot(px - stiff.x, py - stiff.y) / 0.6) ** 2));
-      map[iy * VW + ix] = Math.max(0.2, Math.min(1, s));
-    }
-  }
-  return map;
-}
-
-/** Fallback when no landmarks: lower face progressively softer than the brow. */
-export function defaultSoftness(): Float32Array {
+/** Procedural softness: lower face progressively softer than the brow. */
+function defaultSoftness(): Float32Array {
   const map = new Float32Array(VW * VH);
   for (let iy = 0; iy < VH; iy++) {
     for (let ix = 0; ix < VW; ix++) {

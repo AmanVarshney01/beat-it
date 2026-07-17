@@ -2,47 +2,51 @@ import { Button } from "@beat-it/ui/components/button";
 import { RotateCcw, UserRoundPlus, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import type { Landmark3 } from "@/game/face3d/head3d";
 import { type GameStats, PunchGame } from "@/game/engine";
 
 export function GameScreen({
   face,
-  softness,
+  landmarks,
   onNewFace,
 }: {
   face: HTMLCanvasElement;
-  softness: Float32Array | null;
+  landmarks: Landmark3[] | null;
   onNewFace: () => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
+  const fgRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<PunchGame | null>(null);
   const [stats, setStats] = useState<GameStats>({ hits: 0, combo: 0, damageStage: 0 });
   const [muted, setMuted] = useState(false);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const game = new PunchGame(canvas, face, setStats);
+    const bg = bgRef.current;
+    const gl = glRef.current;
+    const fg = fgRef.current;
+    if (!bg || !gl || !fg) return;
+    const game = new PunchGame({ bg, fg, gl, face, landmarks, onStats: setStats });
     gameRef.current = game;
     return () => {
       game.destroy();
       gameRef.current = null;
     };
-  }, [face]);
+  }, [face, landmarks]);
 
   useEffect(() => {
     if (gameRef.current) gameRef.current.sounds.muted = muted;
   }, [muted]);
 
-  useEffect(() => {
-    gameRef.current?.setFaceSoftness(softness);
-  }, [softness]);
-
   return (
     // fullscreen overlay above the app shell — the face is the whole show
     <div className="bg-background fixed inset-0 z-40 select-none overflow-hidden">
+      {/* canvas sandwich: 2D background → WebGL head → 2D effects */}
+      <canvas ref={bgRef} className="absolute inset-0 h-full w-full" />
+      <canvas ref={glRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       <canvas
-        ref={canvasRef}
-        className="h-full w-full touch-none"
+        ref={fgRef}
+        className="absolute inset-0 h-full w-full touch-none"
         onPointerDown={(e) => {
           const game = gameRef.current;
           if (!game) return;

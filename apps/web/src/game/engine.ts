@@ -1,6 +1,7 @@
 import Matter from "matter-js";
 
 import { SoundPlayer } from "./audio";
+import { Head3D, type Landmark3 } from "./face3d/head3d";
 import { ParticleSystem } from "./particles";
 import { FaceWarp } from "./warp";
 
@@ -24,18 +25,35 @@ const IMPACT_T = 0.5;
 const COMBO_WINDOW = 1.0; // seconds between hits to keep a combo alive
 export const DAMAGE_THRESHOLDS = [5, 15, 30, 50];
 
+export interface PunchGameOptions {
+  /** background scene layer: spotlight, torso, spring, shadow (+ head in 2D mode) */
+  bg: HTMLCanvasElement;
+  /** foreground effects layer: fists, particles, damage overlay */
+  fg: HTMLCanvasElement;
+  /** WebGL layer between them for the 3D head (unused in 2D fallback mode) */
+  gl: HTMLCanvasElement;
+  face: HTMLCanvasElement;
+  /** face landmarks with depth; null → 2D warp fallback mode */
+  landmarks: Landmark3[] | null;
+  onStats: (stats: GameStats) => void;
+}
+
 /**
  * The whole game scene: a matter.js head on a damped spring (punching-dummy
  * style), fists, squash-and-stretch, screen shake, particles, sounds and
- * cartoon damage stickers. React only sees `punch()`, `reset()` and the
- * `onStats` callback — all per-frame state lives here, outside React.
+ * cartoon damage stickers. When landmarks are available the head renders as a
+ * real 3D mesh (Head3D) sandwiched between the two 2D canvas layers; without
+ * them it falls back to the 2D warp pipeline. React only sees `punch()`,
+ * `reset()` and the `onStats` callback — all per-frame state lives here.
  */
 export class PunchGame {
   readonly sounds = new SoundPlayer();
 
-  private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private bg: HTMLCanvasElement;
+  private bgCtx: CanvasRenderingContext2D;
+  private fgCtx: CanvasRenderingContext2D;
   private face: HTMLCanvasElement;
+  private head3d: Head3D | null = null;
   private onStats: (stats: GameStats) => void;
 
   private engine!: Matter.Engine;
@@ -53,6 +71,8 @@ export class PunchGame {
   private squashAngle = 0;
 
   private shakeMag = 0;
+  private shakeX = 0;
+  private shakeY = 0;
   private hits = 0;
   private combo = 0;
   private lastHitAt = -Infinity;
@@ -63,20 +83,27 @@ export class PunchGame {
   private resizeObserver: ResizeObserver;
   private destroyed = false;
 
-  constructor(
-    canvas: HTMLCanvasElement,
-    face: HTMLCanvasElement,
-    onStats: (stats: GameStats) => void,
-  ) {
-    this.canvas = canvas;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D not supported");
-    this.ctx = ctx;
-    this.face = face;
-    this.onStats = onStats;
+  constructor(opts: PunchGameOptions) {
+    this.bg = opts.bg;
+    const bgCtx = opts.bg.getContext("2d");
+    const fgCtx = opts.fg.getContext("2d");
+    if (!bgCtx || !fgCtx) throw new Error("Canvas 2D not supported");
+    this.bgCtx = bgCtx;
+    this.fgCtx = fgCtx;
+    this.face = opts.face;
+    this.onStats = opts.onStats;
+
+    if (opts.landmarks) {
+      try {
+        this.head3d = new Head3D(opts.gl, opts.face, opts.landmarks);
+      } catch (error) {
+        console.warn("WebGL unavailable, falling back to 2D head", error);
+        this.head3d = null;
+      }
+    }
 
     this.resizeObserver = new ResizeObserver(() => this.layout());
-    this.resizeObserver.observe(canvas);
+    this.resizeObserver.observe(opts.bg);
     this.layout();
 
     this.lastFrame = performance.now();
@@ -87,20 +114,27 @@ export class PunchGame {
     this.destroyed = true;
     cancelAnimationFrame(this.rafId);
     this.resizeObserver.disconnect();
+    this.head3d?.dispose();
     if (this.engine) {
       Matter.World.clear(this.engine.world, false);
       Matter.Engine.clear(this.engine);
     }
   }
 
-  /** Size the canvas to its CSS box and (re)build the physics world around it. */
+  /** Size all canvas layers to the CSS box and (re)build the physics world. */
   private layout() {
     const dpr = window.devicePixelRatio || 1;
-    const w = this.canvas.clientWidth || 1;
-    const h = this.canvas.clientHeight || 1;
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = this.bg.clientWidth || 1;
+    const h = this.bg.clientHeight || 1;
+    for (const [canvas, ctx] of [
+      [this.bg, this.bgCtx],
+      [this.fgCtx.canvas, this.fgCtx],
+    ] as const) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    this.head3d?.resize(w, h, dpr);
 
     // the face IS the app — let it dominate the viewport
     this.mount = { x: w / 2, y: h * 0.44 };
@@ -137,11 +171,6 @@ export class PunchGame {
       length: 0,
     });
     Matter.World.add(this.engine.world, [this.head, neck, center]);
-  }
-
-  /** Landmark-derived flesh softness map; arrives async after the game starts. */
-  setFaceSoftness(map: Float32Array | null) {
-    if (map) this.warp.setSoftness(map);
   }
 
   /** True when the point (canvas coords) is on the head — used for tap-to-punch. */
@@ -191,6 +220,7 @@ export class PunchGame {
     this.squashVel = 0;
     this.shakeMag = 0;
     this.warp.reset();
+    this.head3d?.reset();
     Matter.Body.setPosition(this.head, { ...this.mount });
     Matter.Body.setVelocity(this.head, { x: 0, y: 0 });
     Matter.Body.setAngularVelocity(this.head, 0);
@@ -232,7 +262,11 @@ export class PunchGame {
     const ly = Math.max(-1.1, Math.min(1.1, (dx * sinA + dy * cosA) / (r * 1.08)));
     const dirLx = Math.cos(dir) * cosA - Math.sin(dir) * sinA;
     const dirLy = Math.cos(dir) * sinA + Math.sin(dir) * cosA;
-    this.warp.punch(lx, ly, dirLx, dirLy, fist.strength);
+    if (this.head3d) {
+      this.head3d.punch(lx, ly, dirLx, dirLy, fist.strength);
+    } else {
+      this.warp.punch(lx, ly, dirLx, dirLy, fist.strength);
+    }
     this.shakeMag = Math.min(30, this.shakeMag + 5 + 9 * fist.strength);
     this.particles.burst(impact.x, impact.y, fist.strength, this.headRadius / 90);
     this.sounds.punch(fist.strength);
@@ -270,6 +304,8 @@ export class PunchGame {
 
     this.shakeMag *= Math.exp(-dt * 9);
     if (this.shakeMag < 0.05) this.shakeMag = 0;
+    this.shakeX = (Math.random() - 0.5) * 2 * this.shakeMag;
+    this.shakeY = (Math.random() - 0.5) * 2 * this.shakeMag;
 
     if (this.combo > 0 && this.elapsed - this.lastHitAt > COMBO_WINDOW) {
       this.combo = 0;
@@ -277,28 +313,81 @@ export class PunchGame {
     }
 
     this.warp.update(dt);
+    this.head3d?.update(dt);
     this.particles.update(dt);
     this.draw();
     this.rafId = requestAnimationFrame(this.frame);
   };
 
-  private draw() {
-    const { ctx } = this;
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    ctx.clearRect(0, 0, w, h);
+  private headBob(): number {
+    const settled = Math.hypot(this.head.velocity.x, this.head.velocity.y) < 0.5;
+    return settled ? Math.sin(this.elapsed * 2.2) * 3 : 0;
+  }
 
-    ctx.save();
-    if (this.shakeMag > 0) {
-      ctx.translate((Math.random() - 0.5) * 2 * this.shakeMag, (Math.random() - 0.5) * 2 * this.shakeMag);
+  private draw() {
+    const w = this.bg.clientWidth;
+    const h = this.bg.clientHeight;
+
+    // background layer: spotlight, dummy, and the head when in 2D mode
+    const bg = this.bgCtx;
+    bg.clearRect(0, 0, w, h);
+    bg.save();
+    bg.translate(this.shakeX, this.shakeY);
+    this.drawDummy(bg, w, h);
+    if (!this.head3d) this.drawHead(bg);
+    bg.restore();
+
+    // WebGL layer: the 3D head follows the physics body
+    if (this.head3d) {
+      this.head3d.setTransform(
+        this.head.position.x,
+        this.head.position.y + this.headBob(),
+        this.head.angle * 0.6,
+        this.headRadius * 0.88,
+        this.headRadius * 1.08,
+        this.squash,
+        this.squashAngle,
+        this.shakeX,
+        this.shakeY,
+      );
+      this.head3d.render();
     }
 
-    this.drawDummy(ctx, w, h);
-    this.drawHead(ctx);
-    for (const fist of this.fists) this.drawFist(ctx, fist);
-    this.particles.draw(ctx);
+    // foreground layer: fists, particles, damage overlay on top of the head
+    const fg = this.fgCtx;
+    fg.clearRect(0, 0, w, h);
+    fg.save();
+    fg.translate(this.shakeX, this.shakeY);
+    if (this.head3d) this.drawDamageOverlay(fg);
+    for (const fist of this.fists) this.drawFist(fg, fist);
+    this.particles.draw(fg);
+    fg.restore();
+  }
 
+  /** 3D mode: damage stickers + dizzy stars drawn on the fg layer over the mesh. */
+  private drawDamageOverlay(ctx: CanvasRenderingContext2D) {
+    const r = this.headRadius;
+    const pos = this.head.position;
+    const rx = r * 0.88;
+    const ry = r * 1.08;
+    ctx.save();
+    ctx.translate(pos.x, pos.y + this.headBob());
+    ctx.rotate(this.head.angle * 0.6);
+    this.drawDamage(ctx, rx, ry);
     ctx.restore();
+
+    if (this.damageStage >= 4) {
+      ctx.save();
+      ctx.font = `${r * 0.34}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i < 3; i++) {
+        const a = this.elapsed * 4 + (i * Math.PI * 2) / 3;
+        ctx.globalAlpha = 0.9;
+        ctx.fillText("💫", pos.x + Math.cos(a) * r * 0.9, pos.y - ry - r * 0.25 + Math.sin(a) * r * 0.22);
+      }
+      ctx.restore();
+    }
   }
 
   private drawDummy(ctx: CanvasRenderingContext2D, w: number, h: number) {
@@ -382,12 +471,9 @@ export class PunchGame {
   private drawHead(ctx: CanvasRenderingContext2D) {
     const r = this.headRadius;
     const pos = this.head.position;
-    // subtle idle bob when the physics has settled
-    const settled = Math.hypot(this.head.velocity.x, this.head.velocity.y) < 0.5;
-    const bob = settled ? Math.sin(this.elapsed * 2.2) * 3 : 0;
 
     ctx.save();
-    ctx.translate(pos.x, pos.y + bob);
+    ctx.translate(pos.x, pos.y + this.headBob());
     ctx.rotate(this.head.angle * 0.6);
 
     // fake yaw: fast sideways motion narrows the head, reading as a turn in depth
