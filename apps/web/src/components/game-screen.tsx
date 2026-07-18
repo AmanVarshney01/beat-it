@@ -1,6 +1,6 @@
 import { Button } from "@beat-it/ui/components/button";
 import { RotateCcw, Settings, UserRoundPlus, Volume2, VolumeX, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { ReactionVoice } from "@/game/audio";
@@ -37,6 +37,9 @@ const DEFAULT_SETTINGS: StoredSettings = {
   sound: true,
   reactionVoice: "female",
   background: "gym",
+  capEnabled: false,
+  capColor: "#c92f35",
+  capText: "BEAT IT",
   shake: true,
   particles: true,
   damage: true,
@@ -44,7 +47,10 @@ const DEFAULT_SETTINGS: StoredSettings = {
   sway: true,
 };
 
-type ToggleSetting = Exclude<keyof StoredSettings, "background" | "reactionVoice">;
+type ToggleSetting = Exclude<
+  keyof StoredSettings,
+  "background" | "reactionVoice" | "capEnabled" | "capColor" | "capText"
+>;
 
 const SETTING_LABELS: Record<ToggleSetting, string> = {
   sound: "Sound effects",
@@ -56,6 +62,33 @@ const SETTING_LABELS: Record<ToggleSetting, string> = {
 };
 
 const REACTION_VOICES: readonly ReactionVoice[] = ["off", "female", "male"];
+const CAP_COLOR_PRESETS = [
+  { label: "Red", value: "#c92f35" },
+  { label: "Blue", value: "#1e63d8" },
+  { label: "Green", value: "#218c5b" },
+  { label: "Yellow", value: "#f1c62d" },
+  { label: "Black", value: "#17110f" },
+  { label: "Cream", value: "#f5efe3" },
+] as const;
+
+function normalizeCapText(value: string) {
+  return value.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 12);
+}
+
+function normalizeCapColor(value: unknown) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+    ? value.toLowerCase()
+    : DEFAULT_SETTINGS.capColor;
+}
+
+function capTextColor(hexColor: string) {
+  const red = Number.parseInt(hexColor.slice(1, 3), 16);
+  const green = Number.parseInt(hexColor.slice(3, 5), 16);
+  const blue = Number.parseInt(hexColor.slice(5, 7), 16);
+  return red * 0.299 + green * 0.587 + blue * 0.114 < 155
+    ? "#fff7e6"
+    : "#17110f";
+}
 
 function loadSettings(): StoredSettings {
   try {
@@ -77,7 +110,21 @@ function loadSettings(): StoredSettings {
     )
       ? (stored.background as GameBackground)
       : DEFAULT_SETTINGS.background;
-    return { ...DEFAULT_SETTINGS, ...stored, background, reactionVoice };
+    return {
+      ...DEFAULT_SETTINGS,
+      ...stored,
+      background,
+      reactionVoice,
+      capEnabled:
+        typeof stored.capEnabled === "boolean"
+          ? stored.capEnabled
+          : DEFAULT_SETTINGS.capEnabled,
+      capColor: normalizeCapColor(stored.capColor),
+      capText:
+        typeof stored.capText === "string"
+          ? normalizeCapText(stored.capText)
+          : DEFAULT_SETTINGS.capText,
+    };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -338,6 +385,102 @@ export function GameScreen({
                     <span>{option.label}</span>
                   </button>
                 ))}
+              </div>
+            </fieldset>
+            <fieldset className="game-cap-fieldset">
+              <legend>Player cap</legend>
+              <label className="game-cap-toggle">
+                <span>
+                  <strong>Wear a cap</strong>
+                  <small>Moves with the 3D head</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.capEnabled}
+                  onChange={() =>
+                    setSettings((current) => ({
+                      ...current,
+                      capEnabled: !current.capEnabled,
+                    }))
+                  }
+                  className="game-switch"
+                />
+              </label>
+              <div
+                className="game-cap-customizer"
+                data-enabled={settings.capEnabled}
+              >
+                <div
+                  className="game-cap-preview"
+                  style={
+                    {
+                      "--cap-color": settings.capColor,
+                      "--cap-ink": capTextColor(settings.capColor),
+                    } as CSSProperties
+                  }
+                  aria-hidden="true"
+                >
+                  <span className="game-cap-preview-crown">
+                    <span>{settings.capText.trim() || "YOUR NAME"}</span>
+                  </span>
+                </div>
+                <div className="game-cap-fields">
+                  <div className="game-cap-color-field">
+                    <span>Color</span>
+                    <span className="game-cap-color-control">
+                      <input
+                        type="color"
+                        aria-label="Cap color"
+                        value={settings.capColor}
+                        disabled={!settings.capEnabled}
+                        onChange={(event) =>
+                          setSettings((current) => ({
+                            ...current,
+                            capColor: normalizeCapColor(event.target.value),
+                          }))
+                        }
+                        className="game-cap-color-input"
+                      />
+                      <span>{settings.capColor.toUpperCase()}</span>
+                    </span>
+                    <div className="game-cap-palette" aria-label="Cap color presets">
+                      {CAP_COLOR_PRESETS.map((preset) => (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          aria-label={`Set cap color ${preset.label}`}
+                          aria-pressed={settings.capColor === preset.value}
+                          disabled={!settings.capEnabled}
+                          onClick={() =>
+                            setSettings((current) => ({
+                              ...current,
+                              capColor: preset.value,
+                            }))
+                          }
+                          style={{ "--swatch-color": preset.value } as CSSProperties}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <label>
+                    <span>Front text</span>
+                    <input
+                      type="text"
+                      aria-label="Cap text"
+                      value={settings.capText}
+                      maxLength={12}
+                      disabled={!settings.capEnabled}
+                      placeholder="Your name"
+                      onChange={(event) =>
+                        setSettings((current) => ({
+                          ...current,
+                          capText: normalizeCapText(event.target.value),
+                        }))
+                      }
+                      className="game-cap-text-input"
+                    />
+                  </label>
+                </div>
               </div>
             </fieldset>
             <div className="mt-3 space-y-0.5 border-t-2 border-[var(--ink)]/15 pt-2">

@@ -184,6 +184,30 @@ def rounded_box(
     return obj
 
 
+def plane(
+    name: str,
+    location: tuple[float, float, float],
+    dimensions: tuple[float, float],
+    mat: bpy.types.Material,
+    *,
+    rotation: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    owner: bpy.types.Object | None = None,
+) -> bpy.types.Object:
+    bpy.ops.mesh.primitive_plane_add(
+        size=2,
+        location=location,
+        rotation=rotation,
+    )
+    obj = bpy.context.object
+    obj.name = name
+    obj.scale = (dimensions[0] * 0.5, dimensions[1] * 0.5, 1.0)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    assign(obj, mat)
+    if owner:
+        parent(obj, owner)
+    return obj
+
+
 def torus(
     name: str,
     location: tuple[float, float, float],
@@ -337,6 +361,8 @@ def make_materials() -> dict[str, bpy.types.Material]:
         "dummy": material("dummy_rubber", (0.035, 0.045, 0.065, 1), roughness=0.58, coat=0.06),
         "dummy_dark": material("dummy_red_accent", (0.34, 0.008, 0.014, 1), roughness=0.44, coat=0.08),
         "dummy_metal": material("dummy_base_metal", (0.08, 0.09, 0.11, 1), roughness=0.31, metallic=0.72),
+        "cap": material("cap_fabric", (0.42, 0.025, 0.035, 1), roughness=0.72, coat=0.025),
+        "cap_label": material("cap_label", (1.0, 1.0, 1.0, 1), roughness=0.76),
     }
 
 
@@ -527,6 +553,172 @@ def build_dummy(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     return r
 
 
+def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
+    """An oversized, structured baseball cap with a curved forward bill."""
+    r = root("accessory_cap")
+
+    # Build the crown from tapered elliptical rings instead of squashing a
+    # sphere. The tall front and tighter top read as a fitted baseball cap,
+    # while the open lower edge lets the photographed hair sit naturally
+    # inside it.
+    crown_segments = 48
+    crown_rings = (
+        (0.080, 0.410, 0.335, 0.175),
+        (0.175, 0.425, 0.345, 0.050),
+        (0.285, 0.395, 0.325, 0.000),
+        (0.395, 0.300, 0.250, 0.000),
+        (0.455, 0.150, 0.125, 0.000),
+    )
+    crown_vertices: list[tuple[float, float, float]] = []
+    for z, radius_x, radius_y, front_drop in crown_rings:
+        for index in range(crown_segments):
+            angle = math.tau * index / crown_segments
+            front_factor = max(0.0, -math.sin(angle)) ** 2
+            crown_vertices.append(
+                (
+                    math.cos(angle) * radius_x,
+                    math.sin(angle) * radius_y,
+                    z - front_drop * front_factor,
+                )
+            )
+    crown_vertices.append((0, 0, 0.485))
+    crown_faces: list[tuple[int, ...]] = []
+    for ring_index in range(len(crown_rings) - 1):
+        start = ring_index * crown_segments
+        next_start = start + crown_segments
+        for index in range(crown_segments):
+            next_index = (index + 1) % crown_segments
+            crown_faces.append(
+                (
+                    start + index,
+                    start + next_index,
+                    next_start + next_index,
+                    next_start + index,
+                )
+            )
+    top_index = len(crown_vertices) - 1
+    last_ring_start = (len(crown_rings) - 1) * crown_segments
+    for index in range(crown_segments):
+        next_index = (index + 1) % crown_segments
+        crown_faces.append(
+            (last_ring_start + index, last_ring_start + next_index, top_index)
+        )
+    crown_mesh = bpy.data.meshes.new("cap_crown_mesh")
+    crown_mesh.from_pydata(crown_vertices, [], crown_faces)
+    crown_mesh.update()
+    crown = bpy.data.objects.new("cap_crown", crown_mesh)
+    bpy.context.collection.objects.link(crown)
+    smooth(assign(crown, m["cap"]))
+    parent(crown, r)
+
+    # A shallow structured front panel bridges the crown into the bill. It is
+    # deliberately flat across the forehead so the cap sits on top of the
+    # character instead of tracing the face oval.
+    rounded_box(
+        "cap_front_panel",
+        (0, -0.340, 0.070),
+        (0.335, 0.045, 0.070),
+        m["cap"],
+        bevel=0.018,
+        owner=r,
+    )
+
+    # The bill projects toward -Y (the authored front), dips in the middle,
+    # and rises at both sides. Its rounded outline and thin profile stop it
+    # looking like a straight block laid across the forehead.
+    bill_rows = (
+        (-0.245, 0.290, 0.040, 0.000),
+        (-0.315, 0.330, 0.039, 0.003),
+        (-0.395, 0.365, 0.036, 0.007),
+        (-0.480, 0.375, 0.032, 0.011),
+        (-0.555, 0.355, 0.027, 0.014),
+        (-0.615, 0.290, 0.022, 0.014),
+        (-0.650, 0.140, 0.018, 0.008),
+    )
+    bill_columns = 17
+    bill_thickness = 0.026
+    bill_top: list[tuple[float, float, float]] = []
+    for y, half_width, center_z, edge_lift in bill_rows:
+        for column in range(bill_columns):
+            u = -1 + 2 * column / (bill_columns - 1)
+            bill_top.append(
+                (
+                    u * half_width,
+                    y,
+                    center_z + edge_lift * abs(u) ** 1.7,
+                )
+            )
+    bill_vertices = bill_top + [
+        (x, y, z - bill_thickness) for x, y, z in bill_top
+    ]
+    layer_size = len(bill_top)
+    bill_faces: list[tuple[int, ...]] = []
+    for row in range(len(bill_rows) - 1):
+        for column in range(bill_columns - 1):
+            a = row * bill_columns + column
+            b = a + 1
+            c = a + bill_columns + 1
+            d = a + bill_columns
+            bill_faces.append((a, b, c, d))
+            bill_faces.append(
+                (
+                    layer_size + d,
+                    layer_size + c,
+                    layer_size + b,
+                    layer_size + a,
+                )
+            )
+    boundary = (
+        list(range(bill_columns))
+        + [
+            row * bill_columns + bill_columns - 1
+            for row in range(1, len(bill_rows))
+        ]
+        + list(
+            range(
+                (len(bill_rows) - 1) * bill_columns + bill_columns - 2,
+                (len(bill_rows) - 1) * bill_columns - 1,
+                -1,
+            )
+        )
+        + [
+            row * bill_columns
+            for row in range(len(bill_rows) - 2, 0, -1)
+        ]
+    )
+    for index, a in enumerate(boundary):
+        b = boundary[(index + 1) % len(boundary)]
+        bill_faces.append((a, layer_size + a, layer_size + b, b))
+    bill_mesh = bpy.data.meshes.new("cap_brim_mesh")
+    bill_mesh.from_pydata(bill_vertices, [], bill_faces)
+    bill_mesh.update()
+    bill = bpy.data.objects.new("cap_brim", bill_mesh)
+    bpy.context.collection.objects.link(bill)
+    smooth(assign(bill, m["cap"]))
+    parent(bill, r)
+
+    uv_sphere(
+        "cap_button",
+        (0, 0, 0.485),
+        (0.052, 0.052, 0.030),
+        m["cap"],
+        segments=24,
+        rings=14,
+        owner=r,
+    )
+    # Blender's -Y is the front view used by the rest of the authored assets.
+    # Rotating the plane makes its local +Z normal face toward that direction.
+    plane(
+        "cap_label",
+        (0, -0.356, 0.235),
+        (0.315, 0.115),
+        m["cap_label"],
+        rotation=(math.pi / 2, 0, 0),
+        owner=r,
+    )
+    return r
+
+
 def descendants(owner: bpy.types.Object) -> list[bpy.types.Object]:
     result: list[bpy.types.Object] = [owner]
     stack = list(owner.children)
@@ -678,6 +870,13 @@ def main() -> None:
     export_glb(dummy_path, [dummy])
     dummy_vertices, dummy_triangles = count_mesh_data([dummy])
 
+    clear_scene()
+    materials = make_materials()
+    cap = build_cap(materials)
+    cap_path = MODEL_DIR / "cap.glb"
+    export_glb(cap_path, [cap])
+    cap_vertices, cap_triangles = count_mesh_data([cap])
+
     manifest = {
         "generator": "Blender 5.2",
         "canonicalAxes": {"up": "+Y in glTF", "weaponForward": "+X"},
@@ -695,6 +894,20 @@ def main() -> None:
                 "vertices": dummy_vertices,
                 "triangles": dummy_triangles,
                 "bytes": dummy_path.stat().st_size,
+            },
+            "cap": {
+                "url": "/assets/models/cap.glb",
+                "root": "accessory_cap",
+                "colorableMeshes": [
+                    "cap_crown",
+                    "cap_front_panel",
+                    "cap_brim",
+                    "cap_button",
+                ],
+                "labelMesh": "cap_label",
+                "vertices": cap_vertices,
+                "triangles": cap_triangles,
+                "bytes": cap_path.stat().st_size,
             },
         },
         "thumbnails": {kind: f"/assets/weapons/{kind}.png" for kind in WEAPON_KINDS},

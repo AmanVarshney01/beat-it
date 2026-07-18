@@ -6,6 +6,8 @@ import type { AttackKind } from "../types";
 
 const ARSENAL_URL = "/assets/models/arsenal.glb";
 const DUMMY_URL = "/assets/models/dummy.glb";
+const CAP_URL = "/assets/models/cap.glb";
+const CAP_ROOT = "accessory_cap";
 
 const WEAPON_ROOTS: Record<AttackKind, string> = {
   punch: "weapon_punch",
@@ -28,6 +30,7 @@ const weaponImages = new Map<AttackKind, HTMLImageElement>();
 let loadPromise: Promise<void> | null = null;
 let arsenal: GLTF | null = null;
 let dummy: GLTF | null = null;
+let cap: GLTF | null = null;
 
 export function weaponImageUrl(kind: AttackKind) {
   return `/assets/weapons/${kind}.png`;
@@ -55,13 +58,15 @@ export function preloadGameAssets(): Promise<void> {
   loadPromise ??= (async () => {
     const loader = new GLTFLoader();
     const kinds = Object.keys(WEAPON_ROOTS) as AttackKind[];
-    const [loadedArsenal, loadedDummy] = await Promise.all([
+    const [loadedArsenal, loadedDummy, loadedCap] = await Promise.all([
       loadGltf(loader, ARSENAL_URL),
       loadGltf(loader, DUMMY_URL),
+      loadGltf(loader, CAP_URL),
     ]);
     await Promise.all(kinds.map(loadWeaponImage));
     arsenal = loadedArsenal;
     dummy = loadedDummy;
+    cap = loadedCap;
     for (const kind of kinds) {
       if (!arsenal.scene.getObjectByName(WEAPON_ROOTS[kind])) {
         throw new Error(`Authored ${kind} root is missing from arsenal.glb`);
@@ -70,7 +75,22 @@ export function preloadGameAssets(): Promise<void> {
     if (!dummy.scene.getObjectByName("dummy")) {
       throw new Error("Authored dummy root is missing from dummy.glb");
     }
-    for (const scene of [arsenal.scene, dummy.scene]) {
+    const capRoot = cap.scene.getObjectByName(CAP_ROOT);
+    if (!capRoot) {
+      throw new Error("Authored cap root is missing from cap.glb");
+    }
+    for (const requiredPart of [
+      "cap_crown",
+      "cap_front_panel",
+      "cap_brim",
+      "cap_button",
+      "cap_label",
+    ]) {
+      if (!capRoot.getObjectByName(requiredPart)) {
+        throw new Error(`Authored ${requiredPart} is missing from cap.glb`);
+      }
+    }
+    for (const scene of [arsenal.scene, dummy.scene, cap.scene]) {
       scene.updateMatrixWorld(true);
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh) {
@@ -107,4 +127,8 @@ export function instantiateWeapon(kind: AttackKind): THREE.Group {
 
 export function instantiateDummy(): THREE.Group {
   return cloneRoot(dummy?.scene.getObjectByName("dummy"));
+}
+
+export function instantiateCap(): THREE.Group {
+  return cloneRoot(cap?.scene.getObjectByName(CAP_ROOT));
 }

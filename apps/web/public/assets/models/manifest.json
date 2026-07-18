@@ -16,7 +16,7 @@
       },
       "vertices": 14164,
       "triangles": 28248,
-      "bytes": 581828
+      "bytes": 569508
     },
     "dummy": {
       "url": "/assets/models/dummy.glb",
@@ -24,6 +24,20 @@
       "vertices": 1176,
       "triangles": 2336,
       "bytes": 61100
+    },
+    "cap": {
+      "url": "/assets/models/cap.glb",
+      "root": "accessory_cap",
+      "colorableMeshes": [
+        "cap_crown",
+        "cap_front_panel",
+        "cap_brim",
+        "cap_button"
+      ],
+      "labelMesh": "cap_label",
+      "vertices": 949,
+      "triangles": 1830,
+      "bytes": 44860
     }
   },
   "thumbnails": {

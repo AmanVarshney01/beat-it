@@ -3,7 +3,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 import type { RenderQualityProfile } from "../quality";
 import type { AttackKind, GameBackground, Landmark3 } from "../types";
-import { instantiateDummy, instantiateWeapon } from "./assets";
+import { instantiateCap, instantiateDummy, instantiateWeapon } from "./assets";
 import { BACKGROUND_PALETTES, paintStageBackdrop } from "./backgrounds";
 import { TRIANGULATION } from "./triangulation";
 
@@ -62,6 +62,13 @@ export class Scene3D {
   private faceUnderlay: THREE.Mesh;
   private headShell: THREE.Mesh;
   private hairCap: THREE.Mesh;
+  private capAccessory: THREE.Group;
+  private capOwnedMaterials = new Set<THREE.Material>();
+  private capLabelCanvas: HTMLCanvasElement;
+  private capLabelTexture: THREE.CanvasTexture;
+  private capLabelMaterial: THREE.MeshStandardMaterial;
+  private capColor = "#c92f35";
+  private capText = "";
   private edgeSkirt: THREE.Mesh;
   private texture: THREE.CanvasTexture;
   private torso: THREE.Object3D;
@@ -323,6 +330,56 @@ export class Scene3D {
     this.hairCap.castShadow = true;
     this.hairCap.receiveShadow = true;
 
+    this.capLabelCanvas = document.createElement("canvas");
+    this.capLabelCanvas.width = 512;
+    this.capLabelCanvas.height = 192;
+    this.capLabelTexture = new THREE.CanvasTexture(this.capLabelCanvas);
+    this.capLabelTexture.flipY = false;
+    this.capLabelTexture.colorSpace = THREE.SRGBColorSpace;
+    this.capLabelTexture.minFilter = THREE.LinearMipmapLinearFilter;
+    this.capLabelTexture.magFilter = THREE.LinearFilter;
+    this.capLabelMaterial = new THREE.MeshStandardMaterial({
+      map: this.capLabelTexture,
+      transparent: true,
+      alphaTest: 0.04,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      roughness: 0.76,
+      metalness: 0,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+
+    this.capAccessory = instantiateCap();
+    this.capAccessory.name = "player_cap";
+    this.capAccessory.position.set(0, 0.255, -0.02);
+    this.capAccessory.scale.set(0.84, 0.62, 0.84);
+    this.capAccessory.visible = false;
+    this.capAccessory.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      if (object.name === "cap_label") {
+        object.material = this.capLabelMaterial;
+        object.castShadow = false;
+        object.renderOrder = 6;
+        return;
+      }
+      const sourceMaterials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
+      const clonedMaterials = sourceMaterials.map((source) => {
+        const clone = source.clone();
+        this.capOwnedMaterials.add(clone);
+        return clone;
+      });
+      object.material = Array.isArray(object.material)
+        ? clonedMaterials
+        : clonedMaterials[0]!;
+      object.castShadow = true;
+      object.receiveShadow = true;
+    });
+    this.paintCapLabel();
+
     this.edgeSkirt = new THREE.Mesh(
       buildEdgeSkirtGeometry(this.rest),
       new THREE.MeshStandardMaterial({
@@ -340,6 +397,7 @@ export class Scene3D {
     this.headGroup.add(
       this.headShell,
       this.hairCap,
+      this.capAccessory,
       this.faceUnderlay,
       this.edgeSkirt,
       this.faceMesh,
@@ -412,6 +470,57 @@ export class Scene3D {
     this.rim.intensity = palette.rimIntensity;
     this.spot.color.set(palette.spot);
     this.spot.intensity = palette.spotIntensity;
+  }
+
+  setCap(enabled: boolean, color: string, text: string) {
+    this.capAccessory.visible = enabled;
+    const normalizedColor = /^#[0-9a-f]{6}$/i.test(color)
+      ? color.toLowerCase()
+      : "#c92f35";
+    const normalizedText = text
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .trim()
+      .slice(0, 12);
+    if (normalizedColor === this.capColor && normalizedText === this.capText) return;
+
+    this.capColor = normalizedColor;
+    this.capText = normalizedText;
+    for (const material of this.capOwnedMaterials) {
+      if (material instanceof THREE.MeshStandardMaterial) {
+        material.color.set(normalizedColor);
+        material.needsUpdate = true;
+      }
+    }
+    this.paintCapLabel();
+  }
+
+  private paintCapLabel() {
+    const context = this.capLabelCanvas.getContext("2d");
+    if (!context) throw new Error("Canvas 2D not supported");
+    const width = this.capLabelCanvas.width;
+    const height = this.capLabelCanvas.height;
+    context.clearRect(0, 0, width, height);
+    if (!this.capText) {
+      this.capLabelTexture.needsUpdate = true;
+      return;
+    }
+
+    const textColor = readableTextColor(this.capColor);
+    const outlineColor = textColor === "#fff7e6" ? "#17110f" : "#fff7e6";
+    let fontSize = 94;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    do {
+      context.font = `400 ${fontSize}px "Bungee", "Arial Black", sans-serif`;
+      fontSize -= 2;
+    } while (fontSize > 42 && context.measureText(this.capText).width > width * 0.84);
+    context.lineJoin = "round";
+    context.lineWidth = Math.max(7, fontSize * 0.1);
+    context.strokeStyle = outlineColor;
+    context.fillStyle = textColor;
+    context.strokeText(this.capText.toUpperCase(), width / 2, height / 2 + 5);
+    context.fillText(this.capText.toUpperCase(), width / 2, height / 2 + 5);
+    this.capLabelTexture.needsUpdate = true;
   }
 
   private wx(x: number) {
@@ -814,6 +923,10 @@ export class Scene3D {
     disposeObject(this.headShell);
     disposeObject(this.hairCap);
     disposeObject(this.edgeSkirt);
+    for (const material of this.capOwnedMaterials) material.dispose();
+    this.capOwnedMaterials.clear();
+    this.capLabelMaterial.dispose();
+    this.capLabelTexture.dispose();
     this.texture.dispose();
     disposeObject(this.neck);
     disposeObject(this.floor);
@@ -904,6 +1017,14 @@ function sampleCanvasColor(
     (data[1] ?? 96) / 255,
     (data[2] ?? 80) / 255,
   ).convertSRGBToLinear();
+}
+
+function readableTextColor(hexColor: string) {
+  const red = Number.parseInt(hexColor.slice(1, 3), 16);
+  const green = Number.parseInt(hexColor.slice(3, 5), 16);
+  const blue = Number.parseInt(hexColor.slice(5, 7), 16);
+  const luminance = red * 0.299 + green * 0.587 + blue * 0.114;
+  return luminance < 155 ? "#fff7e6" : "#17110f";
 }
 
 // ── flesh softness ───────────────────────────────────────────────────────────

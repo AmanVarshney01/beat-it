@@ -83,3 +83,10 @@
 - [ ] 11.3 Capture and review deterministic visual baselines at desktop and mobile sizes
 - [x] 11.4 Run type checks, production build, OpenSpec strict validation, and performance review with no unexpected console errors
 - [x] 11.5 Remove the legacy/2D gameplay renderer and procedural weapon path after cutover
+
+## 12. Player Cap Customization
+
+- [x] 12.1 Author and export a clean cap GLB with independently colorable crown, brim, button, and front label mesh
+- [x] 12.2 Add persisted cap visibility, six-digit color, and 12-character front-text settings
+- [x] 12.3 Render cap text through one reusable canvas texture with automatic light/dark contrast
+- [x] 12.4 Verify cap fit, text centering, live updates, persistence, recoil attachment, and mobile settings layout

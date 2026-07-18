@@ -26,6 +26,9 @@ const SWEEP_ATTACKS: ReadonlySet<AttackKind> = new Set(["slap"]);
 
 export interface GameSettings {
   background: GameBackground;
+  capEnabled: boolean;
+  capColor: string;
+  capText: string;
   shake: boolean;
   particles: boolean;
   damage: boolean;
@@ -213,6 +216,9 @@ export class PunchGame {
 
   private settings: GameSettings = {
     background: "gym",
+    capEnabled: false,
+    capColor: "#c92f35",
+    capText: "BEAT IT",
     shake: true,
     particles: true,
     damage: true,
@@ -334,6 +340,11 @@ export class PunchGame {
     Object.assign(this.settings, partial);
     this.scene3d.swayEnabled = this.settings.sway;
     this.scene3d.setBackground(this.settings.background);
+    this.scene3d.setCap(
+      this.settings.capEnabled,
+      this.settings.capColor,
+      this.settings.capText,
+    );
   }
 
   /** True when the point (canvas coords) is on the head — used for tap-to-punch. */
