@@ -357,15 +357,15 @@ export class Scene3D {
     const authoredCap = instantiateCap();
     this.capAccessory = authoredCap.children.length > 0 ? authoredCap : buildProceduralCap();
     this.capAccessory.name = "player_cap";
-    this.capAccessory.position.set(0, 0.15, -0.2);
+    this.capAccessory.position.set(0, 0.21, 0.05);
+    // pitched forward so the near-horizontal bill reads from the head-on camera
+    this.capAccessory.rotation.x = 0.26;
     this.capAccessory.rotation.z = -0.045;
     this.capAccessory.visible = false;
     this.capAccessory.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
       if (object.name === "cap_label") {
-        object.material = this.capLabelMaterial;
-        object.castShadow = false;
-        object.renderOrder = 6;
+        object.visible = false; // superseded by the runtime label plane
         return;
       }
       const sourceMaterials = Array.isArray(object.material)
@@ -373,6 +373,8 @@ export class Scene3D {
         : [object.material];
       const clonedMaterials = sourceMaterials.map((source) => {
         const clone = source.clone();
+        // imported models can carry inconsistent winding; never cull the cap
+        clone.side = THREE.DoubleSide;
         this.capOwnedMaterials.add(clone);
         return clone;
       });
@@ -382,6 +384,20 @@ export class Scene3D {
       object.castShadow = true;
       object.receiveShadow = true;
     });
+    // runtime label plane (the authored one proved unreliable across exports);
+    // PlaneGeometry UVs are bottom-origin vs the top-origin texture → flip Y
+    // curved label arc hugging the dome; depth-test-free so the crown's
+    // center bulge can never swallow it
+    this.capLabelMaterial.depthTest = false;
+    const labelArc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.46, 0.46, 0.15, 24, 1, true, -0.48, 0.96),
+      this.capLabelMaterial,
+    );
+    labelArc.position.set(0, 0.27, 0.02);
+    labelArc.rotation.x = -0.1;
+    labelArc.scale.y = -1; // cylinder UVs are bottom-origin vs top-origin texture
+    labelArc.renderOrder = 7;
+    this.capAccessory.add(labelArc);
     this.paintCapLabel();
 
     this.edgeSkirt = new THREE.Mesh(

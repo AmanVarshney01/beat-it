@@ -29,14 +29,12 @@
       "url": "/assets/models/cap.glb",
       "root": "accessory_cap",
       "colorableMeshes": [
-        "cap_crown",
-        "cap_brim",
-        "cap_button"
+        "cap_crown"
       ],
       "labelMesh": "cap_label",
-      "vertices": 1255,
-      "triangles": 2302,
-      "bytes": 48168
+      "vertices": 14098,
+      "triangles": 20014,
+      "bytes": 573528
     }
   },
   "thumbnails": {

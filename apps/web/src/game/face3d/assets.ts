@@ -4,9 +4,11 @@ import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 
 import type { AttackKind } from "../types";
 
-const ARSENAL_URL = "/assets/models/arsenal.glb";
-const DUMMY_URL = "/assets/models/dummy.glb";
-const CAP_URL = "/assets/models/cap.glb";
+// bump when any .glb changes — busts stale browser caches of same-URL assets
+const ASSET_VERSION = "7";
+const ARSENAL_URL = `/assets/models/arsenal.glb?v=${ASSET_VERSION}`;
+const DUMMY_URL = `/assets/models/dummy.glb?v=${ASSET_VERSION}`;
+const CAP_URL = `/assets/models/cap.glb?v=${ASSET_VERSION}`;
 const CAP_ROOT = "accessory_cap";
 
 const WEAPON_ROOTS: Record<AttackKind, string> = {
@@ -79,12 +81,9 @@ export function preloadGameAssets(): Promise<void> {
     if (!capRoot) {
       throw new Error("Authored cap root is missing from cap.glb");
     }
-    for (const requiredPart of [
-      "cap_crown",
-      "cap_brim",
-      "cap_button",
-      "cap_label",
-    ]) {
+    // Only the recolor root and the text panel are structurally required —
+    // brim/button may be merged into the crown mesh (e.g. downloaded models).
+    for (const requiredPart of ["cap_crown", "cap_label"]) {
       if (!capRoot.getObjectByName(requiredPart)) {
         throw new Error(`Authored ${requiredPart} is missing from cap.glb`);
       }
