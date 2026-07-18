@@ -4,9 +4,9 @@ Run with:
   /Applications/Blender.app/Contents/MacOS/Blender \
     --background --python tools/blender/build_game_assets.py
 
-The script is intentionally deterministic and self-contained so binary GLBs are
-reproducible from reviewable source. Blender is an offline authoring tool only;
-the browser never depends on Blender.
+Weapons and the dummy come from the Python source, while the selected cap comes
+from tools/blender/assets/cap_source.glb. Blender is an offline authoring tool
+only; the browser never depends on Blender.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import json
 import math
 from pathlib import Path
 
+import bmesh
 import bpy
 from mathutils import Vector
 
@@ -23,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSET_ROOT = ROOT / "apps" / "web" / "public" / "assets"
 MODEL_DIR = ASSET_ROOT / "models"
 ICON_DIR = ASSET_ROOT / "weapons"
+CAP_SOURCE_PATH = ROOT / "tools" / "blender" / "assets" / "cap_source.glb"
+CAP_DECIMATE_RATIO = 0.65
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 ICON_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -553,160 +556,6 @@ def build_dummy(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     return r
 
 
-def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
-    """A compact, clean baseball cap that rests above the forehead."""
-    r = root("accessory_cap")
-
-    # Keep every point on the lower edge at the same height. A previous
-    # front-drop deformation pulled the crown below the bill, producing a
-    # helmet-like flap and visible intersections with the head.
-    crown_segments = 48
-    crown_rings = (
-        (0.105, 0.385, 0.300),
-        (0.155, 0.390, 0.305),
-        (0.215, 0.375, 0.292),
-        (0.275, 0.340, 0.265),
-        (0.330, 0.285, 0.220),
-        (0.375, 0.210, 0.158),
-        (0.405, 0.120, 0.085),
-    )
-    crown_vertices: list[tuple[float, float, float]] = []
-    for z, radius_x, radius_y in crown_rings:
-        for index in range(crown_segments):
-            angle = math.tau * index / crown_segments
-            crown_vertices.append(
-                (
-                    math.cos(angle) * radius_x,
-                    math.sin(angle) * radius_y,
-                    z,
-                )
-            )
-    crown_vertices.append((0, 0.015, 0.420))
-    crown_faces: list[tuple[int, ...]] = []
-    for ring_index in range(len(crown_rings) - 1):
-        start = ring_index * crown_segments
-        next_start = start + crown_segments
-        for index in range(crown_segments):
-            next_index = (index + 1) % crown_segments
-            crown_faces.append(
-                (
-                    start + index,
-                    start + next_index,
-                    next_start + next_index,
-                    next_start + index,
-                )
-            )
-    top_index = len(crown_vertices) - 1
-    last_ring_start = (len(crown_rings) - 1) * crown_segments
-    for index in range(crown_segments):
-        next_index = (index + 1) % crown_segments
-        crown_faces.append(
-            (last_ring_start + index, last_ring_start + next_index, top_index)
-        )
-    crown_mesh = bpy.data.meshes.new("cap_crown_mesh")
-    crown_mesh.from_pydata(crown_vertices, [], crown_faces)
-    crown_mesh.update()
-    crown = bpy.data.objects.new("cap_crown", crown_mesh)
-    bpy.context.collection.objects.link(crown)
-    smooth(assign(crown, m["cap"]))
-    parent(crown, r)
-
-    # The bill starts just inside the crown and projects toward authored -Y.
-    # It stays narrow, thin, and gently curved so it reads as a brim instead
-    # of a shelf cutting across the face.
-    bill_rows = (
-        (-0.215, 0.250, 0.108, 0.000),
-        (-0.275, 0.280, 0.102, 0.004),
-        (-0.345, 0.305, 0.090, 0.009),
-        (-0.420, 0.310, 0.072, 0.015),
-        (-0.495, 0.285, 0.050, 0.020),
-        (-0.560, 0.225, 0.026, 0.020),
-        (-0.600, 0.105, 0.010, 0.012),
-    )
-    bill_columns = 17
-    bill_thickness = 0.018
-    bill_top: list[tuple[float, float, float]] = []
-    for y, half_width, center_z, edge_lift in bill_rows:
-        for column in range(bill_columns):
-            u = -1 + 2 * column / (bill_columns - 1)
-            bill_top.append(
-                (
-                    u * half_width,
-                    y,
-                    center_z + edge_lift * abs(u) ** 1.7,
-                )
-            )
-    bill_vertices = bill_top + [
-        (x, y, z - bill_thickness) for x, y, z in bill_top
-    ]
-    layer_size = len(bill_top)
-    bill_faces: list[tuple[int, ...]] = []
-    for row in range(len(bill_rows) - 1):
-        for column in range(bill_columns - 1):
-            a = row * bill_columns + column
-            b = a + 1
-            c = a + bill_columns + 1
-            d = a + bill_columns
-            bill_faces.append((a, b, c, d))
-            bill_faces.append(
-                (
-                    layer_size + d,
-                    layer_size + c,
-                    layer_size + b,
-                    layer_size + a,
-                )
-            )
-    boundary = (
-        list(range(bill_columns))
-        + [
-            row * bill_columns + bill_columns - 1
-            for row in range(1, len(bill_rows))
-        ]
-        + list(
-            range(
-                (len(bill_rows) - 1) * bill_columns + bill_columns - 2,
-                (len(bill_rows) - 1) * bill_columns - 1,
-                -1,
-            )
-        )
-        + [
-            row * bill_columns
-            for row in range(len(bill_rows) - 2, 0, -1)
-        ]
-    )
-    for index, a in enumerate(boundary):
-        b = boundary[(index + 1) % len(boundary)]
-        bill_faces.append((a, layer_size + a, layer_size + b, b))
-    bill_mesh = bpy.data.meshes.new("cap_brim_mesh")
-    bill_mesh.from_pydata(bill_vertices, [], bill_faces)
-    bill_mesh.update()
-    bill = bpy.data.objects.new("cap_brim", bill_mesh)
-    bpy.context.collection.objects.link(bill)
-    smooth(assign(bill, m["cap"]))
-    parent(bill, r)
-
-    uv_sphere(
-        "cap_button",
-        (0, 0.015, 0.420),
-        (0.038, 0.038, 0.021),
-        m["cap"],
-        segments=24,
-        rings=14,
-        owner=r,
-    )
-    # Blender's -Y is the front view used by the rest of the authored assets.
-    # Rotating the plane makes its local +Z normal face toward that direction.
-    plane(
-        "cap_label",
-        (0, -0.307, 0.245),
-        (0.250, 0.090),
-        m["cap_label"],
-        rotation=(math.pi / 2, 0, 0),
-        owner=r,
-    )
-    return r
-
-
 def descendants(owner: bpy.types.Object) -> list[bpy.types.Object]:
     result: list[bpy.types.Object] = [owner]
     stack = list(owner.children)
@@ -715,6 +564,42 @@ def descendants(owner: bpy.types.Object) -> list[bpy.types.Object]:
         result.append(child)
         stack.extend(child.children)
     return result
+
+
+def build_cap_from_source() -> bpy.types.Object:
+    """Import and optimize the single checked-in cap source."""
+    if not CAP_SOURCE_PATH.exists():
+        raise FileNotFoundError(f"Missing authored cap source: {CAP_SOURCE_PATH}")
+
+    bpy.ops.import_scene.gltf(filepath=str(CAP_SOURCE_PATH))
+    cap_root = bpy.data.objects.get("accessory_cap")
+    if not cap_root:
+        raise RuntimeError("Authored cap source is missing accessory_cap")
+
+    parts = {obj.name: obj for obj in descendants(cap_root)}
+    crown = parts.get("cap_crown")
+    if not crown or crown.type != "MESH":
+        raise RuntimeError("Authored cap source is missing mesh cap_crown")
+    if "cap_label" not in parts:
+        raise RuntimeError("Authored cap source is missing cap_label")
+
+    bpy.ops.object.select_all(action="DESELECT")
+    crown.select_set(True)
+    bpy.context.view_layer.objects.active = crown
+    decimate = crown.modifiers.new("runtime_budget", "DECIMATE")
+    decimate.decimate_type = "COLLAPSE"
+    decimate.ratio = CAP_DECIMATE_RATIO
+    decimate.use_collapse_triangulate = True
+    bpy.ops.object.modifier_apply(modifier=decimate.name)
+
+    mesh = bmesh.new()
+    mesh.from_mesh(crown.data)
+    bmesh.ops.recalc_face_normals(mesh, faces=mesh.faces)
+    mesh.to_mesh(crown.data)
+    mesh.free()
+    smooth(crown)
+    crown.data.update()
+    return cap_root
 
 
 def select_roots(roots: list[bpy.types.Object]) -> None:
@@ -859,8 +744,7 @@ def main() -> None:
     dummy_vertices, dummy_triangles = count_mesh_data([dummy])
 
     clear_scene()
-    materials = make_materials()
-    cap = build_cap(materials)
+    cap = build_cap_from_source()
     cap_path = MODEL_DIR / "cap.glb"
     export_glb(cap_path, [cap])
     cap_vertices, cap_triangles = count_mesh_data([cap])
@@ -886,11 +770,7 @@ def main() -> None:
             "cap": {
                 "url": "/assets/models/cap.glb",
                 "root": "accessory_cap",
-                "colorableMeshes": [
-                    "cap_crown",
-                    "cap_brim",
-                    "cap_button",
-                ],
+                "colorableMeshes": ["cap_crown"],
                 "labelMesh": "cap_label",
                 "vertices": cap_vertices,
                 "triangles": cap_triangles,

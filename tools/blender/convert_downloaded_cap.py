@@ -1,11 +1,16 @@
-"""Convert the downloaded Cap.obj into Beat It's cap.glb.
+"""Convert a replacement Cap.obj into Beat It's checked-in cap source.
 
 Normalizes the model into the game's head-local frame (Blender Z-up,
 -Y = out of the face; the glTF exporter turns that into +Y up / +Z forward):
 crown half-width 0.41 with the rim just past the brow line, so Scene3D keeps
 its existing transform. Adds the front label plane so cap text keeps working.
 
-Run:  Blender --background --python convert_cap.py -- <src.obj> <out.glb>
+Normal production builds consume tools/blender/assets/cap_source.glb through
+build_game_assets.py. Run this importer only when intentionally replacing that
+source model:
+
+  Blender --background --python tools/blender/convert_downloaded_cap.py \
+    -- <src.obj> tools/blender/assets/cap_source.glb
 """
 
 import math
@@ -98,7 +103,7 @@ cap.data.update()
 (x0, x1), (y0, y1), (z0, z1) = bbox()
 print("FINAL BBOX", (x0, x1), (y0, y1), (z0, z1))
 
-# stretch and droop the bill only (verts beyond the crown front at y < -0.30,
+# stretch and droop the bill only (verts beyond the crown front at y > 0.30,
 # confirmed from exported accessor bounds) so it reads from the head-on camera
 BILL_HINGE = 0.30
 for v in cap.data.vertices:

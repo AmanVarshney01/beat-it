@@ -16,7 +16,7 @@
       },
       "vertices": 14164,
       "triangles": 28248,
-      "bytes": 569508
+      "bytes": 570652
     },
     "dummy": {
       "url": "/assets/models/dummy.glb",
@@ -32,9 +32,9 @@
         "cap_crown"
       ],
       "labelMesh": "cap_label",
-      "vertices": 14108,
-      "triangles": 20014,
-      "bytes": 573844
+      "vertices": 10314,
+      "triangles": 13009,
+      "bytes": 418792
     }
   },
   "thumbnails": {

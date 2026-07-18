@@ -4,11 +4,11 @@ import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 
 import type { AttackKind } from "../types";
 
-// bump when any .glb changes — busts stale browser caches of same-URL assets
-const ASSET_VERSION = "8";
-const ARSENAL_URL = `/assets/models/arsenal.glb?v=${ASSET_VERSION}`;
-const DUMMY_URL = `/assets/models/dummy.glb?v=${ASSET_VERSION}`;
-const CAP_URL = `/assets/models/cap.glb?v=${ASSET_VERSION}`;
+// Version each bundle independently so a cap update does not invalidate the
+// much larger weapon bundle and unchanged dummy model.
+const ARSENAL_URL = "/assets/models/arsenal.glb?v=8";
+const DUMMY_URL = "/assets/models/dummy.glb?v=8";
+const CAP_URL = "/assets/models/cap.glb?v=9";
 const CAP_ROOT = "accessory_cap";
 
 const WEAPON_ROOTS: Record<AttackKind, string> = {

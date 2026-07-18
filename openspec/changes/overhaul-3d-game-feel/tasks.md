@@ -91,3 +91,4 @@
 - [x] 12.3 Render cap text through one reusable canvas texture with automatic light/dark contrast
 - [x] 12.4 Verify cap fit, text centering, live updates, persistence, recoil attachment, and mobile settings layout
 - [x] 12.5 Refine the cap to a compact fitted crown with a clean lower edge, matte fabric, narrow curved bill, and cap-aware dizzy-star orbit
+- [x] 12.6 Consolidate the cap into one checked-in Blender source, optimize its runtime mesh, remove the procedural fallback, and keep max-damage stars clear of the larger crown
