@@ -267,12 +267,65 @@ def cone(
     return obj
 
 
+def cone_between(
+    name: str,
+    start: tuple[float, float, float],
+    end: tuple[float, float, float],
+    radius_start: float,
+    radius_end: float,
+    mat: bpy.types.Material,
+    *,
+    vertices: int = 24,
+) -> bpy.types.Object:
+    start_v = Vector(start)
+    end_v = Vector(end)
+    direction = end_v - start_v
+    midpoint = (start_v + end_v) * 0.5
+    return cone(
+        name,
+        tuple(midpoint),
+        radius_start,
+        radius_end,
+        direction.length,
+        mat,
+        vertices=vertices,
+        rotation=direction.to_track_quat("Z", "Y").to_euler(),
+    )
+
+
+def voxel_union(
+    name: str,
+    pieces: list[bpy.types.Object],
+    mat: bpy.types.Material,
+    *,
+    voxel_size: float,
+) -> bpy.types.Object:
+    """Fuse overlapping primitives into one smooth, organic mesh."""
+    bpy.ops.object.select_all(action="DESELECT")
+    for piece in pieces:
+        piece.select_set(True)
+    bpy.context.view_layer.objects.active = pieces[0]
+    bpy.ops.object.join()
+    obj = pieces[0]
+    obj.name = name
+    modifier = obj.modifiers.new("organic_union", "REMESH")
+    modifier.mode = "VOXEL"
+    modifier.voxel_size = voxel_size
+    modifier.use_smooth_shade = True
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.modifier_apply(modifier=modifier.name)
+    obj.data.materials.clear()
+    assign(obj, mat)
+    smooth(obj)
+    return obj
+
+
 def make_materials() -> dict[str, bpy.types.Material]:
     return {
-        "glove": material("rubber_glove", (0.58, 0.015, 0.025, 1), roughness=0.32, coat=0.18),
-        "glove_dark": material("glove_trim", (0.18, 0.008, 0.012, 1), roughness=0.42),
-        "skin": material("stylized_skin", (0.66, 0.30, 0.17, 1), roughness=0.58),
-        "skin_crease": material("skin_crease", (0.22, 0.055, 0.025, 1), roughness=0.66),
+        "glove": material("oxblood_leather", (0.34, 0.008, 0.014, 1), roughness=0.43, coat=0.07),
+        "glove_light": material("worn_leather_highlight", (0.48, 0.014, 0.018, 1), roughness=0.39, coat=0.08),
+        "glove_dark": material("glove_trim", (0.095, 0.004, 0.007, 1), roughness=0.52),
+        "skin": material("warm_skin", (0.61, 0.27, 0.145, 1), roughness=0.62),
         "nail": material("fingernail", (0.82, 0.52, 0.40, 1), roughness=0.4, coat=0.08),
         "wood": material("warm_wood", (0.27, 0.095, 0.025, 1), roughness=0.56),
         "wood_light": material("wood_handle", (0.50, 0.22, 0.055, 1), roughness=0.48),
@@ -289,35 +342,35 @@ def make_materials() -> dict[str, bpy.types.Material]:
 
 def build_punch(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     r = root("weapon_punch")
-    # The camera sees the model from -Y after glTF's Y-up conversion. Keep the
-    # broad striking surface in X/Z and put the knuckle forms toward -Y so the
-    # glove always reads knuckles-first instead of as a side-view icon.
-    rounded_box("glove_palm", (0.02, 0.0, -0.04), (0.82, 0.42, 0.70), m["glove"], bevel=0.22, owner=r)
-    uv_sphere("glove_back_mass", (-0.06, 0.01, 0.14), (0.44, 0.23, 0.40), m["glove"], owner=r)
-    rounded_box(
-        "knuckle_pad",
-        (0.0, -0.13, 0.38),
-        (0.76, 0.43, 0.34),
+    # Overlapping leather volumes are voxel-fused into one organic padded shell.
+    # This keeps the mitt rounded from every angle and eliminates primitive seams.
+    glove = voxel_union(
+        "glove_shell",
+        [
+            uv_sphere("glove_core", (-0.06, 0.0, 0.08), (0.47, 0.28, 0.52), m["glove"]),
+            uv_sphere("glove_knuckle_mass", (-0.04, -0.01, 0.47), (0.48, 0.28, 0.30), m["glove"]),
+            uv_sphere("glove_lower_mass", (-0.10, 0.0, -0.25), (0.36, 0.25, 0.32), m["glove"]),
+            uv_sphere("glove_thumb_base", (0.25, -0.02, -0.03), (0.24, 0.22, 0.28), m["glove"]),
+            uv_sphere("glove_thumb", (0.40, -0.04, -0.19), (0.22, 0.20, 0.27), m["glove"]),
+        ],
         m["glove"],
-        bevel=0.16,
+        voxel_size=0.035,
+    )
+    parent(glove, r)
+    rounded_box(
+        "cuff_face",
+        (-0.04, -0.02, -0.62),
+        (0.59, 0.39, 0.27),
+        m["glove_dark"],
+        bevel=0.075,
         owner=r,
     )
-    uv_sphere("glove_thumb", (0.38, -0.19, -0.08), (0.22, 0.17, 0.29), m["glove"], owner=r)
-    uv_sphere("thumb_fold", (0.27, -0.22, 0.03), (0.18, 0.10, 0.17), m["glove_dark"], owner=r)
-    cylinder("glove_cuff", (0.0, 0.0, -0.61), 0.31, 0.42, m["glove_dark"], bevel=0.055, owner=r)
-    cylinder("cuff_face", (0.0, -0.11, -0.61), 0.255, 0.34, m["glove"], bevel=0.04, owner=r)
-    curve_tube(
-        "glove_seam",
-        [(-0.32, -0.225, -0.22), (-0.05, -0.252, -0.30), (0.27, -0.225, -0.22)],
-        0.014,
-        m["glove_dark"],
-        owner=r,
-    )
-    curve_tube(
-        "knuckle_seam",
-        [(-0.32, -0.31, 0.27), (0.0, -0.34, 0.22), (0.32, -0.31, 0.27)],
-        0.010,
-        m["glove_dark"],
+    rounded_box(
+        "cuff_patch",
+        (-0.04, -0.225, -0.62),
+        (0.38, 0.025, 0.12),
+        m["glove_light"],
+        bevel=0.025,
         owner=r,
     )
     return r
@@ -325,64 +378,62 @@ def build_punch(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
 
 def build_slap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     r = root("weapon_slap")
-    # Palm faces -Y; fingers extend along +Z. This is the contact view used by
-    # the game camera, not a hand laid flat on its side.
-    rounded_box("palm", (0.0, 0.0, -0.06), (0.72, 0.24, 0.78), m["skin"], bevel=0.18, owner=r)
-    uv_sphere("thenar_pad", (0.22, -0.09, -0.18), (0.24, 0.10, 0.28), m["skin"], owner=r)
-    finger_lengths = (0.66, 0.80, 0.75, 0.62)
-    finger_x = (-0.27, -0.09, 0.10, 0.29)
-    for index, (x, length) in enumerate(zip(finger_x, finger_lengths)):
-        cylinder(
-            f"finger_{index}",
-            (x, 0.0, 0.28 + length * 0.5),
-            0.095,
-            length,
-            m["skin"],
-            bevel=0.085,
-            owner=r,
+    pieces = [
+        uv_sphere("palm_core", (0.0, 0.0, -0.10), (0.38, 0.17, 0.47), m["skin"]),
+        uv_sphere("thenar_mass", (0.23, -0.01, -0.18), (0.23, 0.17, 0.27), m["skin"]),
+        uv_sphere("outer_palm_mass", (-0.23, 0.0, -0.15), (0.18, 0.15, 0.29), m["skin"]),
+        cone_between("wrist", (0.0, 0.0, -0.81), (0.0, 0.0, -0.40), 0.19, 0.27, m["skin"]),
+    ]
+    for index, (start, end, base_radius, tip_radius) in enumerate(
+        (
+            ((-0.31, 0.0, 0.14), (-0.39, 0.0, 0.64), 0.095, 0.072),
+            ((-0.11, 0.0, 0.17), (-0.15, 0.0, 0.82), 0.102, 0.076),
+            ((0.10, 0.0, 0.18), (0.09, 0.0, 0.91), 0.105, 0.078),
+            ((0.29, 0.0, 0.14), (0.34, 0.0, 0.77), 0.098, 0.074),
         )
-        uv_sphere(
-            f"fingertip_{index}",
-            (x, 0.0, 0.28 + length),
-            (0.095, 0.105, 0.105),
-            m["skin"],
-            segments=24,
-            rings=16,
-            owner=r,
+    ):
+        pieces.append(
+            cone_between(
+                f"finger_{index}",
+                start,
+                end,
+                base_radius,
+                tip_radius,
+                m["skin"],
+            )
         )
-    cylinder(
-        "thumb",
-        (0.43, 0.0, -0.02),
-        0.105,
-        0.50,
-        m["skin"],
-        rotation=(0.0, 0.86, 0.0),
-        bevel=0.09,
-        owner=r,
+        pieces.append(
+            uv_sphere(
+                f"fingertip_{index}",
+                end,
+                (tip_radius, tip_radius * 1.08, tip_radius * 1.08),
+                m["skin"],
+                segments=24,
+                rings=16,
+            )
+        )
+    pieces.extend(
+        [
+            cone_between(
+                "thumb",
+                (0.30, -0.01, -0.18),
+                (0.67, 0.0, 0.10),
+                0.125,
+                0.085,
+                m["skin"],
+            ),
+            uv_sphere(
+                "thumb_tip",
+                (0.67, 0.0, 0.10),
+                (0.09, 0.10, 0.095),
+                m["skin"],
+                segments=24,
+                rings=16,
+            ),
+        ]
     )
-    uv_sphere("thumb_tip", (0.62, 0.0, 0.10), (0.11, 0.115, 0.12), m["skin"], owner=r)
-    cylinder("wrist", (0.0, 0.0, -0.64), 0.24, 0.48, m["skin"], bevel=0.075, owner=r)
-    curve_tube(
-        "life_line",
-        [(0.24, -0.135, 0.18), (0.03, -0.145, 0.04), (0.09, -0.14, -0.29)],
-        0.012,
-        m["skin_crease"],
-        owner=r,
-    )
-    curve_tube(
-        "heart_line",
-        [(-0.27, -0.137, 0.14), (-0.03, -0.15, 0.20), (0.27, -0.137, 0.15)],
-        0.010,
-        m["skin_crease"],
-        owner=r,
-    )
-    curve_tube(
-        "wrist_crease",
-        [(-0.20, -0.132, -0.43), (0.0, -0.145, -0.46), (0.20, -0.132, -0.43)],
-        0.010,
-        m["skin_crease"],
-        owner=r,
-    )
+    hand = voxel_union("open_hand", pieces, m["skin"], voxel_size=0.03)
+    parent(hand, r)
     return r
 
 

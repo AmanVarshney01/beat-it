@@ -14,6 +14,11 @@ The system SHALL place blood-free bruises and food residue from the resolved con
 - **WHEN** an egg contacts the selected face triangle
 - **THEN** recognizable albumen, yolk, and shell residue is centered on that triangle's interpolated UV and persists until reset
 
+#### Scenario: Different food marks overlap
+
+- **WHEN** tomato and egg land at the same or nearby face UVs
+- **THEN** both foods remain recognizable while each mark stays centered on its resolved contact
+
 #### Scenario: Deformed contact
 
 - **WHEN** residue is created while the face is dented
@@ -46,7 +51,7 @@ The system SHALL place blood-free bruises and food residue from the resolved con
 
 ### Requirement: Damage and counters can be reset
 
-The system SHALL provide one reset operation that restores the pristine face, clears counters and all 2D/3D residue, removes active attacks, resets deformation/camera/physics state, and releases transient instances without requiring a new upload.
+The system SHALL provide one reset operation that restores the pristine face, clears counters and all residue, removes active attacks, resets deformation/camera/physics state, and releases transient instances without requiring a new upload.
 
 #### Scenario: Reset pressed at rest
 

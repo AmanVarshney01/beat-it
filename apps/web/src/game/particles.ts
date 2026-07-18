@@ -20,40 +20,58 @@ const GRAVITY = 900; // px/s²
 
 export class ParticleSystem {
   private particles: ShapeParticle[] = [];
+  private pool: ShapeParticle[] = [];
+  private qualityMultiplier = 1;
 
-  burst(x: number, y: number, strength = 1, scale = 1, shapes: readonly ShapeKind[] = DEFAULT_SHAPES) {
+  setQuality(multiplier: number) {
+    this.qualityMultiplier = Math.max(0.35, Math.min(1, multiplier));
+  }
+
+  burst(
+    x: number,
+    y: number,
+    strength = 1,
+    scale = 1,
+    shapes: readonly ShapeKind[] = DEFAULT_SHAPES,
+  ) {
     const visualScale = Math.sqrt(scale);
-    const count = 4 + Math.floor(Math.random() * 3);
+    const count = Math.max(
+      2,
+      Math.round((4 + Math.floor(Math.random() * 3)) * this.qualityMultiplier),
+    );
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = (180 + Math.random() * 260) * strength * Math.sqrt(scale);
       const life = 0.5 + Math.random() * 0.4;
-      this.particles.push({
-        kind: "shape",
-        shape: shapes[Math.floor(Math.random() * shapes.length)] ?? "spark",
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 150 * scale,
-        rot: Math.random() * Math.PI * 2,
-        vrot: (Math.random() - 0.5) * 12,
-        size: (12 + Math.random() * 10 * strength) * visualScale,
-        life,
-        maxLife: life,
-      });
+      const particle = this.pool.pop() ?? createParticle();
+      particle.shape = shapes[Math.floor(Math.random() * shapes.length)] ?? "spark";
+      particle.x = x;
+      particle.y = y;
+      particle.vx = Math.cos(angle) * speed;
+      particle.vy = Math.sin(angle) * speed - 150 * scale;
+      particle.rot = Math.random() * Math.PI * 2;
+      particle.vrot = (Math.random() - 0.5) * 12;
+      particle.size = (12 + Math.random() * 10 * strength) * visualScale;
+      particle.life = life;
+      particle.maxLife = life;
+      this.particles.push(particle);
     }
   }
 
   update(dt: number) {
-    for (const p of this.particles) {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i]!;
       p.life -= dt;
       // smoke floats; sparks fall
       p.vy += (p.shape === "smoke" ? -260 : GRAVITY) * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.vrot * dt;
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        this.pool.push(p);
+      }
     }
-    this.particles = this.particles.filter((p) => p.life > 0);
   }
 
   draw(ctx: CanvasRenderingContext2D) {
@@ -68,8 +86,32 @@ export class ParticleSystem {
   }
 
   clear() {
-    this.particles = [];
+    this.pool.push(...this.particles);
+    this.particles.length = 0;
   }
+
+  getStats() {
+    return {
+      activeParticles: this.particles.length,
+      pooledParticles: this.pool.length,
+    };
+  }
+}
+
+function createParticle(): ShapeParticle {
+  return {
+    kind: "shape",
+    shape: "spark",
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    rot: 0,
+    vrot: 0,
+    size: 0,
+    life: 0,
+    maxLife: 0,
+  };
 }
 
 function drawShape(ctx: CanvasRenderingContext2D, shape: ShapeKind, size: number) {

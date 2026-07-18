@@ -18,16 +18,29 @@ type Phase =
   | { name: "upload" }
   | { name: "detecting" }
   | { name: "manual"; image: HTMLImageElement }
-  | { name: "game"; face: HTMLCanvasElement; landmarks: Landmark3[] | null };
+  | { name: "game"; face: HTMLCanvasElement; landmarks: Landmark3[] };
 
 function HomeComponent() {
   const [phase, setPhase] = useState<Phase>({ name: "upload" });
 
-  // landmarks (with depth) power the 3D head; null falls back to the 2D warp
+  // Beat It now has one renderer: a valid landmark rig and authored 3D assets
+  // are required before play begins.
   const startGame = async (face: HTMLCanvasElement) => {
     setPhase({ name: "detecting" });
-    const [landmarks] = await Promise.all([getFaceLandmarks(face), preloadGameAssets()]);
-    setPhase({ name: "game", face, landmarks });
+    try {
+      const [landmarks] = await Promise.all([
+        getFaceLandmarks(face),
+        preloadGameAssets(),
+      ]);
+      if (!landmarks || landmarks.length < 468) {
+        throw new Error("A complete 3D face rig could not be resolved");
+      }
+      setPhase({ name: "game", face, landmarks });
+    } catch (error) {
+      console.error("3D rig preparation failed", error);
+      toast.error("Couldn't build the 3D face. Try a clearer front-facing photo.");
+      setPhase({ name: "upload" });
+    }
   };
 
   const handleImage = async (image: HTMLImageElement) => {

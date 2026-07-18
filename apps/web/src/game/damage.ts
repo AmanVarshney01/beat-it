@@ -1,6 +1,6 @@
 /**
  * Paints damage directly into a working copy of the face bitmap so marks live
- * ON the skin: they wrap and light with the 3D mesh, and the 2D warp draws
+ * ON the skin: they wrap, deform, and light with the 3D face mesh, which draws
  * the same canvas. Marks are located at the exact impact point; repaints
  * happen per hit (bounded by mark caps), never per frame.
  *
@@ -22,6 +22,7 @@ interface SplatMark {
   y: number;
   kind: SplatKind;
   seed: number;
+  scale: number;
 }
 
 const MAX_BRUISES = 20;
@@ -80,11 +81,22 @@ export class DamagePainter {
   /** Food/gag attack at (u, v): paint a splat/flush mark. */
   splat(u: number, v: number, kind: SplatKind): boolean {
     if (this.splats.length >= MAX_SPLATS) return false;
+    const x = u * this.canvas.width;
+    const y = v * this.canvas.height;
+    const overlapsOtherFood = this.splats.some(
+      (mark) =>
+        mark.kind !== kind &&
+        Math.hypot(mark.x - x, mark.y - y) < this.canvas.width * 0.16,
+    );
     const splat = {
-      x: u * this.canvas.width,
-      y: v * this.canvas.height,
+      x,
+      y,
       kind,
       seed: this.seedCounter++,
+      // Keep the newest food centered on the exact UV, but tighten its
+      // footprint when it overlaps the other food. The older splat remains
+      // readable around it instead of being completely painted over.
+      scale: overlapsOtherFood ? 0.72 : 1,
     };
     this.splats.push(splat);
     this.paintSplat(splat);
@@ -162,10 +174,10 @@ export class DamagePainter {
   }
 
   /** Food splat: unmistakably tomato pulp or broken egg, never blood-like. */
-  private paintSplat({ x, y, kind, seed }: SplatMark) {
+  private paintSplat({ x, y, kind, seed, scale }: SplatMark) {
     const { ctx } = this;
     const rand = mulberry32(seed * 104729);
-    const r = this.canvas.width * 0.11;
+    const r = this.canvas.width * 0.11 * scale;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(kind === "egg" ? (rand() - 0.5) * 0.44 : rand() * Math.PI * 2);

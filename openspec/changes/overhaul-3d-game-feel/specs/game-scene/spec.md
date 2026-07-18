@@ -16,7 +16,7 @@ The render loop SHALL target 60fps on the reference desktop, SHALL remain respon
 
 ### Requirement: Head renders as a 3D face mesh when landmarks are available
 
-When face landmarks are found, the head SHALL render as a normalized, lit front-face mesh integrated with a shallow proxy shell and edge transition so it reads as a stable head volume rather than an open sheet. Landmark depth SHALL be centered, smoothed, bounded, and scaled relative to facial anchors. Punch impacts SHALL rotate the head in depth and SHALL deform the contact region along the local surface normal with anatomically weighted falloff. When landmarks are not found or the normalized mesh fails validity checks, the scene SHALL use the 2D warp fallback.
+When face landmarks are found, the head SHALL render as a normalized, lit front-face mesh integrated with a complete proxy shell, simple ears, hair cap, and edge transition so it reads as a stable head volume rather than an open sheet. Landmark depth SHALL be centered, bounded, and scaled relative to facial anchors. Punch impacts SHALL rotate the head in depth and SHALL deform the contact region with anatomically weighted falloff. When landmarks are not found or the mesh fails validity checks, the system SHALL not enter gameplay.
 
 #### Scenario: Stable 3D head on landmark success
 
@@ -28,14 +28,14 @@ When face landmarks are found, the head SHALL render as a normalized, lit front-
 - **WHEN** raw landmarks contain noisy or extreme depth values
 - **THEN** robust centering, smoothing, and clamps prevent an exploded nose, inverted surface, or extreme head thickness
 
-#### Scenario: Fallback without valid landmarks
+#### Scenario: Invalid landmarks
 
 - **WHEN** landmarks are absent or fail mesh validity checks
-- **THEN** the scene renders and plays using the 2D warp pipeline
+- **THEN** the player returns to upload with a clear error and no partial renderer remains active
 
 ### Requirement: Scene renders as a lit 3D room
 
-When the 3D head is active, the scene SHALL render a coherent authored dummy in a grounded room using physically based materials, a key/fill/rim lighting hierarchy, and budgeted contact/dynamic shadows. The torso, shoulder line, adaptive neck, head, weapons, and floor SHALL share a consistent scale and visual language. Screen shake SHALL be applied through the camera rig. The 2D pipeline remains the no-landmarks fallback.
+The scene SHALL render a coherent authored dummy in a grounded room using physically based materials, a key/fill/rim lighting hierarchy, and budgeted contact/dynamic shadows. The torso, shoulder line, adaptive neck, head, weapons, and floor SHALL share a consistent scale and visual language. Screen shake SHALL be applied through the camera rig. This Three.js scene is the only gameplay renderer.
 
 #### Scenario: Grounded room and dummy
 

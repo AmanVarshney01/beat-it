@@ -336,6 +336,8 @@
   top: 4.65rem;
   right: max(1rem, env(safe-area-inset-right));
   width: min(20rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 5.65rem);
+  overflow-y: auto;
   border: 3px solid var(--ink);
   border-radius: 0.9rem;
   padding: 1rem;
@@ -344,6 +346,156 @@
   color: var(--ink);
   color-scheme: light;
   animation: settings-in 140ms ease-out;
+}
+
+.game-background-fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.game-background-fieldset legend {
+  margin-bottom: 0.4rem;
+  padding: 0 0.15rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.58;
+}
+
+.game-background-button {
+  display: flex;
+  min-width: 0;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.5rem;
+  border: 2px solid var(--ink);
+  border-radius: 0.55rem;
+  padding: 0.35rem;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: left;
+  outline: none;
+  transition: transform 100ms ease, background 100ms ease, box-shadow 100ms ease;
+}
+
+.game-background-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.game-background-button[aria-pressed="true"] {
+  background: var(--poster);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.game-background-button:focus-visible {
+  outline: 3px solid var(--booth-blue);
+  outline-offset: 1px;
+}
+
+.game-background-swatch {
+  position: relative;
+  width: 2.9rem;
+  height: 2rem;
+  flex: none;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 0.32rem;
+}
+
+.game-background-swatch::before,
+.game-background-swatch::after {
+  position: absolute;
+  content: "";
+}
+
+.game-background-swatch[data-background="studio"] {
+  background: #16181e;
+}
+
+.game-background-swatch[data-background="studio"]::before {
+  inset: 0.28rem 0.65rem 0;
+  border: 2px solid #343946;
+  background: #22252d;
+}
+
+.game-background-swatch[data-background="studio"]::after {
+  top: 0.22rem;
+  right: 0.3rem;
+  left: 0.3rem;
+  height: 2px;
+  background: #e8dfc9;
+}
+
+.game-background-swatch[data-background="gym"] {
+  background: #662a24;
+}
+
+.game-background-swatch[data-background="gym"]::before {
+  top: 0.25rem;
+  right: 0.7rem;
+  left: 0.7rem;
+  height: 0.55rem;
+  border: 1px solid #17110f;
+  background: #e5c48f;
+}
+
+.game-background-swatch[data-background="gym"]::after {
+  right: 0;
+  bottom: 0.36rem;
+  left: 0;
+  height: 3px;
+  background: #e6d3ad;
+  box-shadow: 0 6px 0 #e6d3ad;
+}
+
+.game-background-swatch[data-background="midway"] {
+  background: #15284f;
+}
+
+.game-background-swatch[data-background="midway"]::before {
+  top: 0;
+  bottom: 0;
+  left: 0.24rem;
+  width: 0.42rem;
+  background: #9f2c2c;
+  box-shadow: 1.95rem 0 0 #9f2c2c;
+}
+
+.game-background-swatch[data-background="midway"]::after {
+  top: 0.28rem;
+  right: 0.55rem;
+  left: 0.55rem;
+  height: 0.55rem;
+  border: 1px solid #351d18;
+  background: #e5b62d;
+}
+
+.game-background-swatch[data-background="rooftop"] {
+  background: #14203a;
+}
+
+.game-background-swatch[data-background="rooftop"]::before {
+  top: 0.2rem;
+  right: 0.3rem;
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 50%;
+  background: #e9dfbd;
+}
+
+.game-background-swatch[data-background="rooftop"]::after {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 0.75rem;
+  background: #111722;
+  clip-path: polygon(0 45%, 18% 45%, 18% 5%, 38% 5%, 38% 60%, 58% 60%, 58% 25%, 80% 25%, 80% 50%, 100% 50%, 100% 100%, 0 100%);
 }
 
 .game-switch {
@@ -577,7 +729,14 @@
   }
 
   .game-hint {
+    bottom: calc(max(0.7rem, env(safe-area-inset-bottom)) + 10.75rem);
+  }
+
+  .game-attack-button {
+    right: max(0.75rem, env(safe-area-inset-right));
     bottom: calc(max(0.7rem, env(safe-area-inset-bottom)) + 6.75rem);
+    padding: 0.85rem 1.5rem;
+    font-size: 1.1rem;
   }
 
   .game-weapon-dock {

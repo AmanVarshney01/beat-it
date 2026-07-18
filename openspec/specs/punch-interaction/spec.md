@@ -65,7 +65,7 @@ The system SHALL offer five slapstick attack types — punch, slap, mallet, toma
 
 ### Requirement: Weapons render as 3D models with depth
 
-In 3D mode every weapon SHALL render as a 3D model (no emoji): thrown food SHALL fly from the viewer's position into the scene with visible depth and tumble before splatting; melee weapons SHALL swing in as 3D models. In 2D fallback mode, weapons SHALL use rendered model sprites instead of emoji.
+Every weapon SHALL render as an authored 3D model (no emoji): thrown food SHALL fly from the viewer's position into the scene with visible depth and tumble before breaking at contact; melee weapons SHALL swing in as 3D models with readable contact and follow-through.
 
 #### Scenario: Tomato flies in depth
 
@@ -85,4 +85,3 @@ The system SHALL support keyboard play: number keys 1–5 select the correspondi
 
 - **WHEN** the user presses Space during play
 - **THEN** the selected attack fires at the head
-

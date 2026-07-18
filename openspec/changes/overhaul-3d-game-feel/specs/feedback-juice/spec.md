@@ -58,7 +58,7 @@ Each attack SHALL schedule its whoosh, anticipation accent, contact transient, b
 
 ### Requirement: Punch impact deforms the face locally
 
-A landed attack SHALL deform the 3D face around the resolved local surface point along its normal plus a bounded tangential drag component, with anatomical weighting, distance falloff, boundary stiffness, capped displacement, and elastic recovery. The 2D fallback SHALL apply the equivalent normalized local deformation.
+A landed attack SHALL deform the 3D face around the resolved local surface point with anatomical weighting, distance falloff, capped displacement, and elastic recovery.
 
 #### Scenario: Cheek dent on hit
 

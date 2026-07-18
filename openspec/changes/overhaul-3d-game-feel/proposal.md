@@ -8,14 +8,14 @@ The game uses Three.js, but its presentation still reads as a prototype: the fac
 - Rebuild the 3D head as a normalized, closed-looking presentation with controlled depth, stable silhouette, better skin shading, and a convincing neck connection.
 - Replace the empty primitive room and dummy treatment with a grounded set, readable lighting hierarchy, contact shadows, improved framing, and responsive composition.
 - Replace the shared attack interpolation with weapon-specific choreography containing anticipation, approach, contact, compression, follow-through, and recovery phases.
-- Upgrade procedural weapon models and materials so each weapon has a recognizable silhouette, grip/orientation, scale, and surface response.
+- Replace procedural weapon stand-ins with authored Blender models so each weapon has a recognizable silhouette, grip/orientation, scale, and surface response.
 - Narrow the playable arsenal to punch, slap, mallet, tomato, and egg; remove fish, pie, noodles, and chili from UI, runtime, authored assets, damage, audio, and fallback behavior.
 - Make punch, slap, and mallet enter from the same side of the face the player directly targets, while preserving a camera-facing hand silhouette and a physically aligned mallet.
 - Make dents, splats, particles, audio, camera impulse, and head physics derive from one resolved 3D contact event.
 - Replace emoji/comic-word effect stand-ins with authored weapon renders and bounded physical impact particles.
 - Add optional short spoken reactions with selectable female or male local voices, bounded overlap, and shared mute behavior.
 - Add measurable visual and performance acceptance scenes for desktop and mobile, including deterministic attack playback and graceful quality reduction.
-- Preserve client-only face processing, the 2D fallback, rapid input, existing controls, and the blood-free slapstick tone.
+- Preserve client-only face processing, rapid input, existing controls, and the blood-free slapstick tone while requiring a valid authored 3D scene for gameplay.
 
 ## Capabilities
 
@@ -25,7 +25,7 @@ The game uses Three.js, but its presentation still reads as a prototype: the fac
 
 ### Modified Capabilities
 
-- `game-scene`: Upgrade the head, neck, dummy, environment, composition, depth behavior, and 2D fallback parity.
+- `game-scene`: Upgrade the head, neck, dummy, environment, composition, depth behavior, and strict 3D startup validation.
 - `punch-interaction`: Replace generic projectile motion with weapon-specific attack timelines, orientations, contact resolution, and reset behavior.
 - `feedback-juice`: Synchronize deformation, camera, particles, audio, and recovery around the actual contact event.
 - `damage-progression`: Place and render bruises and food residue from resolved mesh contact data so marks remain attached while the head deforms and rotates.

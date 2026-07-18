@@ -45,6 +45,11 @@ The system SHALL paint damage into the face texture at the exact impact point of
 - **WHEN** several punches land in the same area
 - **THEN** the bruise there grows darker/deeper rather than duplicating
 
+#### Scenario: Different food marks overlap
+
+- **WHEN** tomato and egg land at the same or nearby point
+- **THEN** both residue types remain recognizable instead of the newest mark completely hiding the older one
+
 #### Scenario: Damage caps out
 
 - **WHEN** the hit count passes the final threshold
@@ -63,4 +68,3 @@ The system SHALL provide a reset control that restores the pristine face, clears
 
 - **WHEN** the user presses reset
 - **THEN** all damage overlays are removed and hit/combo counters return to zero
-

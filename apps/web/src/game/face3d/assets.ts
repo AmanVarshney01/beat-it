@@ -28,7 +28,6 @@ const weaponImages = new Map<AttackKind, HTMLImageElement>();
 let loadPromise: Promise<void> | null = null;
 let arsenal: GLTF | null = null;
 let dummy: GLTF | null = null;
-let reportedFailure = false;
 
 export function weaponImageUrl(kind: AttackKind) {
   return `/assets/weapons/${kind}.png`;
@@ -63,6 +62,14 @@ export function preloadGameAssets(): Promise<void> {
     await Promise.all(kinds.map(loadWeaponImage));
     arsenal = loadedArsenal;
     dummy = loadedDummy;
+    for (const kind of kinds) {
+      if (!arsenal.scene.getObjectByName(WEAPON_ROOTS[kind])) {
+        throw new Error(`Authored ${kind} root is missing from arsenal.glb`);
+      }
+    }
+    if (!dummy.scene.getObjectByName("dummy")) {
+      throw new Error("Authored dummy root is missing from dummy.glb");
+    }
     for (const scene of [arsenal.scene, dummy.scene]) {
       scene.updateMatrixWorld(true);
       scene.traverse((object) => {
@@ -72,20 +79,17 @@ export function preloadGameAssets(): Promise<void> {
         }
       });
     }
-  })().catch((error: unknown) => {
-    if (!reportedFailure) {
-      reportedFailure = true;
-      console.warn("Authored game assets unavailable; using procedural fallbacks", error);
-    }
-  });
+  })();
   return loadPromise;
 }
 
 function cloneRoot(
   source: THREE.Object3D | undefined,
   offset: [number, number, number] = [0, 0, 0],
-): THREE.Group | null {
-  if (!source) return null;
+): THREE.Group {
+  if (!source) {
+    throw new Error("Authored 3D assets must be preloaded before starting the game");
+  }
   const clone = source.clone(true);
   clone.position.set(...offset);
   const group = new THREE.Group();
@@ -94,18 +98,13 @@ function cloneRoot(
   return group;
 }
 
-export function instantiateWeapon(kind: AttackKind): THREE.Group | null {
+export function instantiateWeapon(kind: AttackKind): THREE.Group {
   return cloneRoot(
     arsenal?.scene.getObjectByName(WEAPON_ROOTS[kind]),
     WEAPON_PIVOT_OFFSETS[kind],
   );
 }
 
-export function instantiateDummy(): THREE.Group | null {
+export function instantiateDummy(): THREE.Group {
   return cloneRoot(dummy?.scene.getObjectByName("dummy"));
-}
-
-export function getWeaponImage(kind: AttackKind): HTMLImageElement | null {
-  const image = weaponImages.get(kind);
-  return image?.complete && image.naturalWidth > 0 ? image : null;
 }

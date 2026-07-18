@@ -69,7 +69,7 @@ A landed punch SHALL locally deform the face around the impact point (a dent pus
 
 ### Requirement: Face deformation is anatomically weighted
 
-Face deformation SHALL vary by facial region derived from face landmarks — soft regions (cheeks, jaw) deform visibly more than stiff regions (forehead) — and each dent SHALL displace surrounding flesh outward in a ring. When landmarks cannot be obtained, the system SHALL fall back to a procedural softness map with the lower face softer.
+Face deformation SHALL vary by facial region derived from face landmarks — soft regions (cheeks, jaw) deform visibly more than stiff regions (forehead) — and each dent SHALL displace surrounding flesh outward in a ring. If individual anatomical anchors are unavailable inside an otherwise valid rig, deformation SHALL use conservative bounded weights.
 
 #### Scenario: Cheek hit squishes more than forehead hit
 
@@ -84,5 +84,4 @@ Face deformation SHALL vary by facial region derived from face landmarks — sof
 #### Scenario: Landmarks unavailable
 
 - **WHEN** landmark detection fails on the face bitmap (e.g., manual crop of a non-face)
-- **THEN** deformation still works using the procedural softness fallback
-
+- **THEN** deformation remains bounded using conservative regional weights

@@ -40,17 +40,17 @@ On contact the system SHALL create one resolved contact event and SHALL derive t
 
 ### Requirement: Weapons render as 3D models with depth
 
-In 3D mode every weapon SHALL use an authored Blender/glTF model with a documented canonical scale, pivot, forward axis, material assignment, and collision/contact region. Thrown food SHALL travel through camera depth with readable perspective and tumble; melee weapons SHALL follow weapon-specific arcs. In 2D fallback mode, weapons SHALL use thumbnails or staged sprites rendered from the same authored assets.
+Every weapon SHALL use an authored Blender/glTF model with a documented canonical scale, pivot, forward axis, material assignment, and collision/contact region. Thrown food SHALL travel through camera depth with readable perspective and tumble; melee weapons SHALL follow weapon-specific arcs.
 
 #### Scenario: Authored model loads
 
 - **WHEN** the arsenal GLB is available
 - **THEN** each picker choice spawns the matching named asset with correct scale, orientation, PBR material, and shadow behavior
 
-#### Scenario: Asset load fails
+#### Scenario: Required asset fails to load
 
 - **WHEN** the arsenal GLB cannot be loaded
-- **THEN** a bounded procedural fallback preserves playability and reports one non-fatal diagnostic
+- **THEN** gameplay does not start, the failure is reported once, and the player returns to upload
 
 #### Scenario: Tomato flies in depth
 

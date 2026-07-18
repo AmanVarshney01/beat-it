@@ -9,7 +9,7 @@ The current scene proves the interaction loop but not the intended finish. Brows
 
 The result is uncanny rather than deliberately stylized: objects have no shared scale or material language, attacks lack weight, contacts slide, and residue does not appear to come from the thing that hit the face.
 
-The game must remain fully client-side, tolerate arbitrary uploaded faces, keep the 2D fallback, support rapid input, run on mobile browsers, and stay in a non-gory slapstick register. “Realistic” therefore means physically coherent shape, light, weight, contact, and follow-through—not photorealistic injury.
+The game must remain fully client-side, validate arbitrary uploaded faces before entering play, use one authored 3D renderer, support rapid input, run on mobile browsers, and stay in a non-gory slapstick register. “Realistic” therefore means physically coherent shape, light, weight, contact, and follow-through—not photorealistic injury.
 
 ## Goals / Non-Goals
 
@@ -26,7 +26,7 @@ The game must remain fully client-side, tolerate arbitrary uploaded faces, keep 
 
 - Photorealistic skin, wounds, blood, cuts, burns, or gore.
 - Full-body ragdoll physics, destructible environments, multiplayer, or a backend.
-- Replacing MediaPipe or removing the 2D no-landmarks fallback.
+- Replacing MediaPipe or inventing gameplay for an invalid face reconstruction.
 - Requiring Blender at application runtime. Blender is an offline authoring/build tool only.
 
 ## Decisions
@@ -45,7 +45,7 @@ An idempotent Blender Python build script will create or update:
 - one `dummy.glb` containing the torso/shoulder/base presentation;
 - transparent picker/cursor thumbnails rendered from the same weapon assets.
 
-All assets will use meter-like canonical units, +Y up, forward axes documented per weapon, applied transforms, stable origins at the grip or center of mass, bevelled silhouettes, smooth/custom normals, and Principled BSDF materials. Exported meshes will be modest enough for mobile and will share materials where sensible. Three.js `GLTFLoader` will load and cache the files once; attack instances clone scene nodes without disposing shared geometry. Runtime procedural models remain a temporary load-failure fallback.
+All assets will use meter-like canonical units, +Y up, forward axes documented per weapon, applied transforms, stable origins at the grip or center of mass, bevelled silhouettes, smooth/custom normals, and Principled BSDF materials. Exported meshes will be modest enough for mobile and will share materials where sensible. Three.js `GLTFLoader` will load and cache the files once; attack instances clone scene nodes without disposing shared geometry. Missing or invalid authored assets prevent the game scene from starting and return the player to upload with a clear error.
 
 Alternative considered: continue improving runtime primitives. Rejected because the current approach makes bevels, topology, normals, pivots, proportions, and consistent art direction unnecessarily difficult and has already produced placeholder-looking results.
 
@@ -67,7 +67,7 @@ The engine and render systems communicate through typed records instead of recon
 
 Landmarks will be normalized from stable eye, nose, cheek, forehead, and chin anchors instead of directly subtracting `0.5`. Raw depth will be median-centered, clamped, smoothed, and scaled relative to inter-eye distance. The front landmark surface will sit in a shallow proxy head shell with an edge skirt so the silhouette reads as a volume and the neck does not terminate against a paper mask.
 
-The photographed face remains the front texture. The shell uses robustly sampled skin tones and deliberately subdued detail; it must not invent detailed hair or ears. Boundary vertices are stiffer than cheeks and jaw. Local deformation acts along the surface normal plus a smaller tangential component, with capped displacement and volume-preserving surrounding bulge.
+The photographed face remains the front texture. A complete sampled-color shell, simple ears, a subdued hair cap, and an adaptive skin-toned neck provide a coherent side and rear silhouette without claiming photorealistic reconstruction. Boundary vertices are stiffer than cheeks and jaw. Local deformation acts along the surface normal plus a smaller tangential component, with capped displacement and volume-preserving surrounding bulge.
 
 Alternative considered: generate a full head from the photo. Rejected because a single image and the existing model do not provide reliable back-of-head, ear, or hair geometry.
 
@@ -89,7 +89,7 @@ interface ContactEvent {
 }
 ```
 
-Physics, denting, splats, particles, camera motion, and sound consume this exact event. A 2D fallback contact adapter produces the same shape from normalized oval coordinates.
+Physics, denting, splats, particles, camera motion, and sound consume this exact event. The visible face raycast is the only playable contact source.
 
 ### 6. Replace the shared timer with weapon-specific phase timelines
 
@@ -113,7 +113,7 @@ The camera rig maintains a stable head/torso composition across aspect ratios an
 
 ### 9. Add deterministic review and performance gates
 
-A development-only review mode will accept a fixed seed, attack kind, target, timeline phase/frame, viewport, and quality tier. It will allow repeatable screenshots for rest, anticipation, contact, follow-through, residue, and reset states. Unit tests cover timeline phase transitions, side-aware contact mapping, resource cleanup, and deterministic seeding. Browser checks cover all weapons, resize, rapid input, reset, and fallback mode.
+A development-only review mode will accept a fixed seed, attack kind, target, timeline phase/frame, viewport, and quality tier. It will allow repeatable screenshots for rest, anticipation, contact, follow-through, residue, and reset states. Unit tests cover timeline phase transitions, side-aware contact mapping, resource cleanup, and deterministic seeding. Browser checks cover all weapons, resize, rapid input, reset, and invalid-start handling.
 
 Reference budgets:
 
@@ -124,8 +124,8 @@ Reference budgets:
 ## Risks / Trade-offs
 
 - [Blender output becomes an opaque binary artifact] → keep the complete deterministic Blender build script, object/material naming contract, and generated-asset manifest in version control.
-- [GLB loading delays the first attack] → preload during face detection, show load progress only when necessary, and retain procedural fallback until assets are ready.
-- [A proxy shell mismatches unusual faces] → derive conservative dimensions from robust landmark anchors, keep the shell visually subordinate, and preserve the current 2D fallback.
+- [GLB loading delays the first attack] → preload during face detection and enter play only after every required authored root is validated.
+- [A proxy shell mismatches unusual faces] → derive conservative dimensions from robust landmark anchors, keep the shell visually subordinate, and reject unusable reconstructions before play.
 - [PBR and shadows regress low-end devices] → cap DPR, pool instances, monitor moving frame time, and lower shadow/particle counts through quality tiers.
 - [A full rewrite breaks the working interaction loop] → migrate behind a local renderer switch and land systems in vertical slices with deterministic comparison scenes.
 - [More realism makes violence feel harsher] → keep exaggerated timing, toy-like weapons, bright food residue, blood-free physical particles, and the existing prohibition on injury detail.
@@ -134,18 +134,18 @@ Reference budgets:
 
 1. Add deterministic review mode and capture current baselines.
 2. Add typed attack/contact records and adapters while keeping current visuals.
-3. Introduce the Blender build pipeline, asset loader, and authored weapon/dummy assets with procedural fallback.
+3. Introduce the Blender build pipeline, asset loader, and required authored weapon/dummy assets.
 4. Introduce the camera, lighting, material, and quality pipeline.
 5. Replace the head construction with normalized depth, shell/skirt, surface raycast, and bounded deformation.
 6. Move each weapon to a phase timeline one at a time, starting with punch, mallet, and tomato.
 7. Make direct melee entry side-aware and keep hand silhouettes camera-facing.
-8. Route all feedback through `ContactEvent`, then verify rapid input, reset, resize, and 2D fallback.
-9. Remove unused weapon/runtime builders only after visual/performance gates pass.
+8. Route all feedback through resolved 3D contact, then verify rapid input, reset, resize, and invalid-start handling.
+9. Remove the legacy 2D renderer and all procedural weapon/runtime builders after visual/performance gates pass.
 
-During migration, `?renderer=legacy` will retain the previous 3D path for comparison and rollback. Once the new path passes all acceptance scenes, the flag and legacy path can be removed in a separate cleanup.
+The cutover is direct: there is one production Three.js renderer and no `renderer=legacy` or 2D gameplay path.
 
 ## Open Questions
 
 - Final asset style can be tuned after the first Blender turntable, but the default is premium toy/stylized physical rather than photoreal.
 - The exact mid-tier mobile reference device must be selected before final performance sign-off; the initial emulator budget above is the implementation gate.
-- If the proxy shell performs poorly on strongly rotated or occluded faces, those inputs will use the 2D fallback rather than forcing a broken 3D presentation.
+- If the proxy shell performs poorly on strongly rotated or occluded faces, those inputs will return to upload rather than forcing a broken presentation.

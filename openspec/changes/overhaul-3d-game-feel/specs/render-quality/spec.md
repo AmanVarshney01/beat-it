@@ -40,6 +40,18 @@ The camera rig SHALL frame the head and upper dummy consistently across supporte
 - **WHEN** the strongest mallet hit lands
 - **THEN** the camera impulse reinforces direction and weight, decays smoothly, and never clips the head out of frame
 
+### Requirement: Authored stages frame the target without adding runtime load
+
+The game SHALL provide multiple visually distinct environments with stage-specific wall art, floor treatment, and lighting. Each environment SHALL preserve a quiet central target area and SHALL be uploaded as one reusable backdrop texture rather than recurring decorative geometry.
+
+#### Scenario: Stage is changed
+- **WHEN** the player selects a different stage in settings
+- **THEN** the wall, floor, and light palette change immediately while the head, exact contact targeting, damage marks, and active interaction remain unchanged
+
+#### Scenario: Stage runs during rapid input
+- **WHEN** the player performs ten rapid attacks in any stage
+- **THEN** the stage adds no per-hit geometry, material, or texture allocation and does not introduce progressive slowdown
+
 ### Requirement: Render quality adapts within explicit budgets
 
 The renderer SHALL cap device pixel ratio, pool transient objects, monitor moving frame time, and reduce shadow and particle budgets through deterministic quality tiers before disabling core interaction feedback.

@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-import type { AttackKind, Landmark3 } from "../types";
+import type { RenderQualityProfile } from "../quality";
+import type { AttackKind, GameBackground, Landmark3 } from "../types";
 import { instantiateDummy, instantiateWeapon } from "./assets";
+import { BACKGROUND_PALETTES, paintStageBackdrop } from "./backgrounds";
 import { TRIANGULATION } from "./triangulation";
 
 // canonical FaceMesh anchor indices for the softness field
@@ -26,7 +28,6 @@ const pbr = (
   roughness = 0.56,
   metalness = 0,
 ) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
-const lam = pbr;
 
 export interface FaceSurfaceContact {
   /** Face-texture coordinates, top-origin like the source canvas. */
@@ -52,17 +53,25 @@ export class Scene3D {
   private camera: THREE.PerspectiveCamera;
   private cameraDist = 1000;
   private environment: THREE.Texture;
+  private backgroundCanvas: HTMLCanvasElement;
+  private backgroundTexture: THREE.CanvasTexture;
+  private backgroundKind: GameBackground | null = null;
 
   private headGroup = new THREE.Group();
   private faceMesh: THREE.Mesh;
   private faceUnderlay: THREE.Mesh;
   private headShell: THREE.Mesh;
+  private hairCap: THREE.Mesh;
+  private ears: [THREE.Mesh, THREE.Mesh];
   private edgeSkirt: THREE.Mesh;
   private texture: THREE.CanvasTexture;
   private torso: THREE.Object3D;
   private neck: THREE.Mesh;
   private floor: THREE.Mesh;
   private wall: THREE.Mesh;
+  private hemisphere: THREE.HemisphereLight;
+  private fill: THREE.DirectionalLight;
+  private rim: THREE.DirectionalLight;
   private spot: THREE.SpotLight;
 
   private rest: Float32Array;
@@ -81,11 +90,28 @@ export class Scene3D {
   private cssW = 1;
   private cssH = 1;
   private headRadius = 100;
+  private sourceDpr = 1;
+  private dprCap = 1.75;
+  private foodFragmentCount = 9;
 
   private projectiles = new Map<number, THREE.Group>();
+  private projectilePool = new Map<AttackKind, THREE.Group[]>();
   private projectileRaycaster = new THREE.Raycaster();
   private projectilePointer = new THREE.Vector2();
   private projectileWorldPoint = new THREE.Vector3();
+  private foodFragmentGeometry = new THREE.TetrahedronGeometry(0.105, 0);
+  private foodFragmentMaterials = {
+    tomato: [
+      pbr(0xd73824, 0.74),
+      pbr(0xb7201b, 0.78),
+      pbr(0x477b2e, 0.8),
+    ],
+    egg: [
+      pbr(0xf1ead8, 0.8),
+      pbr(0xd8cfbb, 0.84),
+      pbr(0xf2b82f, 0.68),
+    ],
+  } as const;
   constructor(
     canvas: HTMLCanvasElement,
     face: HTMLCanvasElement,
@@ -114,13 +140,14 @@ export class Scene3D {
 
     this.camera = new THREE.PerspectiveCamera(35, 1, 10, 8000);
 
-    this.scene.add(new THREE.HemisphereLight(0x9fb8d8, 0x170d14, 0.4));
-    const fill = new THREE.DirectionalLight(0xbfd8ff, 0.68);
-    fill.position.set(1.5, 1.2, 2.5);
-    this.scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xff6558, 0.9);
-    rim.position.set(2, 1.5, -2);
-    this.scene.add(rim);
+    this.hemisphere = new THREE.HemisphereLight(0x9fb8d8, 0x170d14, 0.4);
+    this.scene.add(this.hemisphere);
+    this.fill = new THREE.DirectionalLight(0xbfd8ff, 0.68);
+    this.fill.position.set(1.5, 1.2, 2.5);
+    this.scene.add(this.fill);
+    this.rim = new THREE.DirectionalLight(0xff6558, 0.9);
+    this.rim.position.set(2, 1.5, -2);
+    this.scene.add(this.rim);
     this.spot = new THREE.SpotLight(0xffe2c5, 3.2, 0, 0.72, 0.72, 0.42);
     this.spot.castShadow = true;
     this.spot.shadow.mapSize.set(1024, 1024);
@@ -131,20 +158,47 @@ export class Scene3D {
     this.scene.add(this.spot.target);
 
     // the room
+    this.backgroundCanvas = document.createElement("canvas");
+    this.backgroundCanvas.width = 1200;
+    this.backgroundCanvas.height = 640;
+    const backgroundContext = this.backgroundCanvas.getContext("2d");
+    if (!backgroundContext) throw new Error("Canvas 2D not supported");
+    paintStageBackdrop(
+      backgroundContext,
+      this.backgroundCanvas.width,
+      this.backgroundCanvas.height,
+      "gym",
+    );
+    this.backgroundTexture = new THREE.CanvasTexture(this.backgroundCanvas);
+    this.backgroundTexture.colorSpace = THREE.SRGBColorSpace;
+    this.backgroundTexture.anisotropy = Math.min(
+      4,
+      this.renderer.capabilities.getMaxAnisotropy(),
+    );
+
     this.floor = new THREE.Mesh(new THREE.PlaneGeometry(9000, 6000), pbr(0x302b35, 0.72));
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.receiveShadow = true;
     this.scene.add(this.floor);
-    this.wall = new THREE.Mesh(new THREE.PlaneGeometry(12000, 8000), pbr(0x09080e, 0.96));
+    this.wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(6000, 3200),
+      new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: this.backgroundTexture,
+        emissive: 0xffffff,
+        emissiveMap: this.backgroundTexture,
+        emissiveIntensity: 0.28,
+        roughness: 0.94,
+        metalness: 0,
+      }),
+    );
     this.wall.position.z = -1100;
     this.wall.receiveShadow = true;
     this.scene.add(this.wall);
+    this.setBackground("gym");
 
     // the dummy
-    this.torso = instantiateDummy() ?? new THREE.Mesh(
-      new THREE.CylinderGeometry(1, 1.18, 2, 28),
-      pbr(0xa81f2c, 0.38),
-    );
+    this.torso = instantiateDummy();
     this.torso.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.castShadow = true;
@@ -154,12 +208,12 @@ export class Scene3D {
     this.scene.add(this.torso);
     const sampledSkinColor = sampleCanvasColor(face, 0.3, 0.55, neckColor);
     this.neck = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.7, 0.95, 1, 24, 1, true),
+      new THREE.CylinderGeometry(0.72, 0.96, 1, 28, 1, false),
       new THREE.MeshPhysicalMaterial({
-        color: 0x303744,
-        roughness: 0.58,
-        metalness: 0.08,
-        clearcoat: 0.06,
+        color: sampledSkinColor,
+        roughness: 0.72,
+        metalness: 0,
+        sheen: 0.04,
       }),
     );
     this.neck.castShadow = true;
@@ -221,16 +275,19 @@ export class Scene3D {
     const skinColor = sampledSkinColor.clone().multiplyScalar(0.96);
     const headBackColor = sampleCanvasColor(face, 0.5, 0.1, neckColor).multiplyScalar(0.8);
     this.headShell = new THREE.Mesh(
-      new THREE.SphereGeometry(0.34, 42, 30, 0, Math.PI * 2, 0, Math.PI * 0.82),
+      new THREE.SphereGeometry(0.35, 42, 32),
       new THREE.MeshPhysicalMaterial({
-        color: headBackColor,
-        roughness: 0.76,
-        sheen: 0.05,
-        envMapIntensity: 0.28,
+        color: skinColor,
+        roughness: 0.78,
+        sheen: 0.08,
+        envMapIntensity: 0.24,
       }),
     );
-    this.headShell.scale.set(0.86, 0.88, 0.72);
-    this.headShell.position.set(0, 0.035, -0.26);
+    this.headShell.scale.set(0.92, 1.02, 0.76);
+    // Keep every proxy surface behind the deepest landmark. The former shell
+    // intersected recessed cheek/mouth triangles and showed up as hard patches
+    // across the photographed face.
+    this.headShell.position.set(0, 0.005, -0.27);
     this.headShell.castShadow = true;
     this.headShell.receiveShadow = true;
 
@@ -242,9 +299,46 @@ export class Scene3D {
         envMapIntensity: 0.25,
       }),
     );
-    this.faceUnderlay.scale.set(0.78, 0.88, 0.55);
-    this.faceUnderlay.position.z = -0.18;
+    this.faceUnderlay.scale.set(0.87, 1, 0.62);
+    this.faceUnderlay.position.z = -0.22;
     this.faceUnderlay.castShadow = true;
+
+    this.hairCap = new THREE.Mesh(
+      new THREE.SphereGeometry(
+        0.355,
+        36,
+        22,
+        0,
+        Math.PI * 2,
+        0,
+        Math.PI * 0.57,
+      ),
+      new THREE.MeshStandardMaterial({
+        color: headBackColor,
+        roughness: 0.86,
+        envMapIntensity: 0.18,
+      }),
+    );
+    this.hairCap.scale.set(0.94, 1.04, 0.79);
+    this.hairCap.position.set(0, 0.02, -0.29);
+    this.hairCap.castShadow = true;
+    this.hairCap.receiveShadow = true;
+
+    const earGeometry = new THREE.SphereGeometry(0.1, 22, 16);
+    const earMaterial = new THREE.MeshStandardMaterial({
+      color: skinColor,
+      roughness: 0.8,
+      envMapIntensity: 0.2,
+    });
+    const leftEar = new THREE.Mesh(earGeometry, earMaterial);
+    const rightEar = new THREE.Mesh(earGeometry, earMaterial);
+    leftEar.position.set(-0.32, -0.005, -0.1);
+    rightEar.position.set(0.32, -0.005, -0.1);
+    leftEar.scale.set(0.72, 1.28, 0.58);
+    rightEar.scale.copy(leftEar.scale);
+    leftEar.castShadow = true;
+    rightEar.castShadow = true;
+    this.ears = [leftEar, rightEar];
 
     this.edgeSkirt = new THREE.Mesh(
       buildEdgeSkirtGeometry(this.rest),
@@ -253,13 +347,22 @@ export class Scene3D {
         roughness: 0.72,
         side: THREE.DoubleSide,
         envMapIntensity: 0.3,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
       }),
     );
     this.edgeSkirt.castShadow = true;
-    // Kept as a prepared transition mesh for future side-profile tuning; the
-    // front landmark surface and inset shell currently produce the cleaner read.
-    this.edgeSkirt.visible = false;
-    this.headGroup.add(this.headShell, this.faceUnderlay, this.edgeSkirt, this.faceMesh);
+    this.edgeSkirt.visible = true;
+    this.headGroup.add(
+      this.headShell,
+      this.hairCap,
+      leftEar,
+      rightEar,
+      this.faceUnderlay,
+      this.edgeSkirt,
+      this.faceMesh,
+    );
     this.scene.add(this.headGroup);
     this.softness = buildVertexSoftness(landmarks);
   }
@@ -267,13 +370,67 @@ export class Scene3D {
   resize(cssW: number, cssH: number, dpr: number) {
     this.cssW = cssW;
     this.cssH = cssH;
-    this.renderer.setPixelRatio(Math.min(dpr, cssW < 600 ? 1.25 : 1.75));
+    this.sourceDpr = dpr;
+    this.renderer.setPixelRatio(Math.min(dpr, this.dprCap));
     this.renderer.setSize(cssW, cssH, false);
     this.camera.aspect = cssW / cssH;
     // camera distance such that 1 world unit == 1 css pixel at z = 0
     this.cameraDist = cssH / 2 / Math.tan((this.camera.fov * Math.PI) / 360);
     this.camera.position.set(0, 0, this.cameraDist);
     this.camera.updateProjectionMatrix();
+
+    // Fit the 15:8 set wall like background-size: cover at its actual depth.
+    // This reveals the authored environment instead of showing a tiny crop of
+    // its quiet center, while still covering portrait and ultrawide screens.
+    const depthScale = (this.cameraDist + 1100) / this.cameraDist;
+    const wallScale =
+      Math.max((cssW * depthScale) / 6000, (cssH * depthScale) / 3200) * 1.025;
+    this.wall.scale.set(wallScale, wallScale, 1);
+  }
+
+  setQuality(profile: RenderQualityProfile) {
+    const shadowSizeChanged = this.spot.shadow.mapSize.width !== profile.shadowSize;
+    this.dprCap = profile.dprCap;
+    this.foodFragmentCount = profile.foodFragmentCount;
+    this.spot.shadow.mapSize.set(profile.shadowSize, profile.shadowSize);
+    if (shadowSizeChanged && this.spot.shadow.map) {
+      this.spot.shadow.map.dispose();
+      this.spot.shadow.map = null;
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+    this.renderer.setPixelRatio(Math.min(this.sourceDpr, this.dprCap));
+    this.renderer.setSize(this.cssW, this.cssH, false);
+  }
+
+  /** Swap the full environment without adding any per-frame scene work. */
+  setBackground(background: GameBackground) {
+    if (this.backgroundKind === background) return;
+    this.backgroundKind = background;
+
+    const context = this.backgroundCanvas.getContext("2d");
+    if (context) {
+      paintStageBackdrop(
+        context,
+        this.backgroundCanvas.width,
+        this.backgroundCanvas.height,
+        background,
+      );
+      this.backgroundTexture.needsUpdate = true;
+    }
+
+    const palette = BACKGROUND_PALETTES[background];
+    this.renderer.setClearColor(palette.clear, 1);
+    const floorMaterial = this.floor.material as THREE.MeshStandardMaterial;
+    floorMaterial.color.set(palette.floor);
+    this.hemisphere.color.set(palette.hemisphereSky);
+    this.hemisphere.groundColor.set(palette.hemisphereGround);
+    this.hemisphere.intensity = palette.hemisphereIntensity;
+    this.fill.color.set(palette.fill);
+    this.fill.intensity = palette.fillIntensity;
+    this.rim.color.set(palette.rim);
+    this.rim.intensity = palette.rimIntensity;
+    this.spot.color.set(palette.spot);
+    this.spot.intensity = palette.spotIntensity;
   }
 
   private wx(x: number) {
@@ -321,15 +478,10 @@ export class Scene3D {
   setLayout(mount: { x: number; y: number }, headRadius: number, torsoTop: number, floorY: number) {
     this.headRadius = headRadius;
     const r = headRadius;
-    if (this.torso.userData.sharedAsset) {
-      this.torso.scale.setScalar(r * 0.92);
-      this.torso.position.set(this.wx(mount.x), this.wy(torsoTop) - r * 1.4, -r * 0.18);
-    } else {
-      this.torso.scale.set(r * 1.08, r * 1.15, r * 0.8);
-      this.torso.position.set(this.wx(mount.x), this.wy(torsoTop) - r * 1.15, -r * 0.1);
-    }
+    this.torso.scale.setScalar(r * 0.92);
+    this.torso.position.set(this.wx(mount.x), this.wy(torsoTop) - r * 1.4, -r * 0.18);
     this.floor.position.y = this.wy(floorY);
-    this.wall.position.y = this.wy(floorY) + 1200;
+    this.wall.position.y = 0;
     this.spot.position.set(this.wx(mount.x) - r * 3.2, this.wy(mount.y) + r * 4.6, r * 5.5);
     this.spot.target.position.set(this.wx(mount.x), this.wy(mount.y), 0);
   }
@@ -441,21 +593,68 @@ export class Scene3D {
   // ── projectiles ────────────────────────────────────────────────────────────
 
   spawnProjectile(id: number, kind: AttackKind) {
-    const authored = instantiateWeapon(kind);
-    const group = authored ?? buildWeaponMesh(kind);
+    const pool = this.projectilePool.get(kind) ?? [];
+    this.projectilePool.set(kind, pool);
+    const group = pool.pop() ?? this.createProjectile(kind);
     const baseScale = this.headRadius * WEAPON_SCALE[kind];
+    const model = group.userData.model as THREE.Group;
     group.scale.setScalar(baseScale);
-    group.traverse((o) => {
-      // Fast projectiles are made of several authored submeshes. Casting each
-      // one into the spotlight shadow map doubles their draw work and stalls
-      // badly when rapid input overlaps six attacks. PBR scene lighting still
-      // gives them shape; static face/dummy shadows remain enabled.
-      if (o instanceof THREE.Mesh) o.castShadow = false;
-    });
+    group.position.set(0, 0, 0);
+    group.rotation.set(0, 0, 0);
+    group.visible = true;
+    model.visible = true;
+    const fragments = (group.userData.fragments as THREE.Mesh[] | undefined) ?? [];
+    for (const fragment of fragments) {
+      fragment.visible = false;
+      fragment.position.set(0, 0, 0);
+      fragment.rotation.set(0, 0, 0);
+      fragment.scale.setScalar(1);
+    }
     this.scene.add(group);
-    group.userData.disposeOnRemove = !authored;
     group.userData.baseScale = baseScale;
     this.projectiles.set(id, group);
+  }
+
+  private createProjectile(kind: AttackKind) {
+    const group = new THREE.Group();
+    const model = instantiateWeapon(kind);
+    group.add(model);
+    group.userData.kind = kind;
+    group.userData.model = model;
+
+    if (kind === "tomato" || kind === "egg") {
+      const fragments: THREE.Mesh[] = [];
+      const materials = this.foodFragmentMaterials[kind];
+      for (let i = 0; i < 9; i++) {
+        const material =
+          kind === "tomato"
+            ? materials[i === 0 ? 2 : i % 2]
+            : materials[i % 4 === 0 ? 2 : i % 2];
+        const fragment = new THREE.Mesh(this.foodFragmentGeometry, material);
+        const angle = (i / 9) * Math.PI * 2 + (i % 2) * 0.21;
+        fragment.userData.direction = [
+          Math.cos(angle) * (0.72 + (i % 3) * 0.15),
+          Math.sin(angle) * (0.68 + ((i + 1) % 3) * 0.13) + 0.25,
+          0.35 + (i % 4) * 0.15,
+        ];
+        fragment.userData.spin = [
+          2.5 + i * 0.31,
+          3.4 + i * 0.23,
+          4.1 + i * 0.27,
+        ];
+        fragment.visible = false;
+        fragments.push(fragment);
+        group.add(fragment);
+      }
+      group.userData.fragments = fragments;
+    }
+
+    group.traverse((object) => {
+      // Static face/dummy shadows carry the scene. Disabling fast projectile
+      // shadows avoids a second full draw pass when attacks overlap.
+      if (object instanceof THREE.Mesh) object.castShadow = false;
+    });
+    return group;
   }
 
   /**
@@ -470,7 +669,8 @@ export class Scene3D {
     angle: number,
     travel: number,
     t: number,
-    contactAt: number,
+    contactStart: number,
+    contactEnd: number,
   ) {
     const group = this.projectiles.get(id);
     if (!group) return;
@@ -489,14 +689,49 @@ export class Scene3D {
       meleeSurfaceZ = r * (0.8 - radial * 0.34);
     }
     if (kind === "tomato" || kind === "egg") {
-      z = r * 0.2 + (1 - approach) * 750 - followThrough * r * 0.7;
+      z = r * 0.2 + (1 - approach) * 750;
       py = y - Math.sin(approach * Math.PI) * r * 0.5;
-      group.rotation.x = t * 9;
-      group.rotation.z = t * 7;
-      const splat = THREE.MathUtils.clamp((t - contactAt) / (1 - contactAt), 0, 1);
-      const baseScale = Number(group.userData.baseScale) || 1;
-      group.scale.setScalar(baseScale * (1 - splat * 0.62));
-      group.visible = splat < 0.88;
+      const model = group.userData.model as THREE.Group;
+      const fragments = (group.userData.fragments as THREE.Mesh[] | undefined) ?? [];
+      const burst = THREE.MathUtils.clamp(
+        (t - contactStart) / Math.max(1 - contactStart, 0.001),
+        0,
+        1,
+      );
+      model.visible = t < contactStart;
+      group.rotation.set(
+        model.visible ? t * 9 : 0,
+        model.visible ? t * 3.5 : 0,
+        model.visible ? t * 7 : 0,
+      );
+      const fragmentScale = Math.max(
+        0,
+        1 - THREE.MathUtils.smoothstep(burst, 0.7, 1),
+      );
+      for (let i = 0; i < fragments.length; i++) {
+        const fragment = fragments[i]!;
+        fragment.visible =
+          burst > 0 && i < this.foodFragmentCount && fragmentScale > 0.03;
+        if (!fragment.visible) continue;
+        const [dx, dy, dz] = fragment.userData.direction as [
+          number,
+          number,
+          number,
+        ];
+        const [rx, ry, rz] = fragment.userData.spin as [
+          number,
+          number,
+          number,
+        ];
+        const distance = easeOutCubic(burst) * 3.6;
+        fragment.position.set(
+          dx * distance,
+          dy * distance - burst * burst * 2.1,
+          dz * distance,
+        );
+        fragment.rotation.set(rx * burst, ry * burst, rz * burst);
+        fragment.scale.setScalar(fragmentScale);
+      }
     } else if (kind === "mallet") {
       // Keep the striking head in front of the landmark surface at contact;
       // otherwise the handle disappears behind the textured face.
@@ -512,12 +747,14 @@ export class Scene3D {
       const baseScale = Number(group.userData.baseScale) || 1;
       const direction = Math.cos(angle) >= 0 ? 1 : -1;
       const contactProgress = THREE.MathUtils.clamp(
-        (t - contactAt) / Math.max(1 - contactAt, 0.001),
+        (t - contactStart) / Math.max(contactEnd - contactStart, 0.001),
         0,
         1,
       );
       const palmCompression =
-        approach > 0.96 ? 0.06 * (1 - THREE.MathUtils.smoothstep(contactProgress, 0.28, 0.62)) : 0;
+        t >= contactStart && t <= contactEnd
+          ? 0.055 * Math.sin(contactProgress * Math.PI)
+          : 0;
       // Mirror a right-to-left slap instead of rotating the palm upside down.
       // The shallow tilt keeps the broad palm facing the camera through contact.
       group.scale.set(
@@ -533,12 +770,14 @@ export class Scene3D {
       const baseScale = Number(group.userData.baseScale) || 1;
       const direction = Math.cos(angle) >= 0 ? 1 : -1;
       const contactProgress = THREE.MathUtils.clamp(
-        (t - contactAt) / Math.max(1 - contactAt, 0.001),
+        (t - contactStart) / Math.max(contactEnd - contactStart, 0.001),
         0,
         1,
       );
       const compression =
-        approach > 0.96 ? 0.08 * (1 - THREE.MathUtils.smoothstep(contactProgress, 0.3, 0.64)) : 0;
+        t >= contactStart && t <= contactEnd
+          ? 0.075 * Math.sin(contactProgress * Math.PI)
+          : 0;
       group.scale.set(
         baseScale * direction * (1 + compression * 0.45),
         baseScale * (1 - compression),
@@ -566,8 +805,12 @@ export class Scene3D {
     const group = this.projectiles.get(id);
     if (!group) return;
     this.scene.remove(group);
-    if (group.userData.disposeOnRemove) disposeGroup(group);
     this.projectiles.delete(id);
+    group.visible = false;
+    const kind = group.userData.kind as AttackKind;
+    const pool = this.projectilePool.get(kind) ?? [];
+    this.projectilePool.set(kind, pool);
+    if (pool.length < 6) pool.push(group);
   }
 
   reset() {
@@ -588,14 +831,37 @@ export class Scene3D {
     (this.faceMesh.material as THREE.Material).dispose();
     disposeObject(this.faceUnderlay);
     disposeObject(this.headShell);
+    disposeObject(this.hairCap);
     disposeObject(this.edgeSkirt);
+    this.ears[0].geometry.dispose();
+    (this.ears[0].material as THREE.Material).dispose();
     this.texture.dispose();
     disposeObject(this.neck);
     disposeObject(this.floor);
     disposeObject(this.wall);
-    if (!this.torso.userData.sharedAsset) disposeObject(this.torso);
+    this.backgroundTexture.dispose();
+    this.foodFragmentGeometry.dispose();
+    for (const materials of Object.values(this.foodFragmentMaterials)) {
+      for (const material of materials) material.dispose();
+    }
+    this.projectilePool.clear();
     this.environment.dispose();
     this.renderer.dispose();
+  }
+
+  getPerformanceStats() {
+    let pooledProjectiles = 0;
+    for (const pool of this.projectilePool.values()) {
+      pooledProjectiles += pool.length;
+    }
+    return {
+      calls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      geometries: this.renderer.info.memory.geometries,
+      textures: this.renderer.info.memory.textures,
+      activeProjectiles: this.projectiles.size,
+      pooledProjectiles,
+    };
   }
 }
 
@@ -608,8 +874,8 @@ function buildEdgeSkirtGeometry(rest: Float32Array): THREE.BufferGeometry {
     const x = rest[source * 3] ?? 0;
     const y = rest[source * 3 + 1] ?? 0;
     const z = rest[source * 3 + 2] ?? 0;
-    positions.set([x, y, z + 0.065], i * 3);
-    positions.set([x * 0.88, y * 0.88, -0.08], (i + contour.length) * 3);
+    positions.set([x, y, z + 0.025], i * 3);
+    positions.set([x * 0.94, y * 0.96, -0.045], (i + contour.length) * 3);
     const next = (i + 1) % contour.length;
     const back = i + contour.length;
     const nextBack = next + contour.length;
@@ -622,8 +888,6 @@ function buildEdgeSkirtGeometry(rest: Float32Array): THREE.BufferGeometry {
   return geometry;
 }
 
-// ── weapon models (primitives only, no assets) ───────────────────────────────
-
 const WEAPON_SCALE: Record<AttackKind, number> = {
   punch: 0.62,
   slap: 0.72,
@@ -631,112 +895,6 @@ const WEAPON_SCALE: Record<AttackKind, number> = {
   tomato: 0.4,
   egg: 0.38,
 };
-
-export function buildWeaponMesh(kind: AttackKind): THREE.Group {
-  const g = new THREE.Group();
-  switch (kind) {
-    case "tomato": {
-      const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), lam(0xd4321f));
-      body.scale.y = 0.88;
-      g.add(body);
-      for (let i = 0; i < 5; i++) {
-        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 6), lam(0x3f7d2a));
-        const a = (i / 5) * Math.PI * 2;
-        leaf.position.set(Math.cos(a) * 0.12, 0.45, Math.sin(a) * 0.12);
-        leaf.rotation.set(Math.sin(a) * 0.9, 0, Math.cos(a) * -0.9);
-        g.add(leaf);
-      }
-      break;
-    }
-    case "egg": {
-      const geometry = new THREE.SphereGeometry(0.44, 24, 18);
-      const positions = geometry.getAttribute("position") as THREE.BufferAttribute;
-      for (let i = 0; i < positions.count; i++) {
-        const y = positions.getY(i);
-        const taper = 1 - (y / 0.44) * 0.17;
-        positions.setX(i, positions.getX(i) * taper);
-        positions.setZ(i, positions.getZ(i) * taper);
-        positions.setY(i, y * 1.35);
-      }
-      geometry.computeVertexNormals();
-      const body = new THREE.Mesh(geometry, lam(0xeee5cf, 0.58));
-      g.add(body);
-      const speckleMaterial = lam(0x9b7752, 0.72);
-      for (const [x, y, z, size] of [
-        [-0.16, 0.16, 0.39, 0.018],
-        [0.15, 0.27, 0.35, 0.014],
-        [0.22, -0.12, 0.34, 0.017],
-        [-0.1, -0.3, 0.38, 0.013],
-      ] as const) {
-        const speckle = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 6), speckleMaterial);
-        speckle.position.set(x, y, z);
-        speckle.scale.z = 0.25;
-        g.add(speckle);
-      }
-      break;
-    }
-    case "punch": {
-      const main = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), lam(0xb30f20));
-      main.scale.set(0.86, 0.72, 0.48);
-      main.position.y = -0.05;
-      g.add(main);
-      for (let i = 0; i < 4; i++) {
-        const knuckle = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 10), lam(0xc91527));
-        knuckle.scale.z = 1.12;
-        knuckle.position.set(-0.27 + i * 0.18, 0.36, 0.12);
-        g.add(knuckle);
-      }
-      const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), lam(0xc22525));
-      thumb.scale.y = 1.3;
-      thumb.position.set(0.38, -0.1, 0.16);
-      g.add(thumb);
-      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.34, 16), lam(0x8c1a1a));
-      cuff.position.y = -0.61;
-      g.add(cuff);
-      g.position.y = -0.38;
-      break;
-    }
-    case "slap": {
-      const skin = 0xe6b28c;
-      const palm = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.22, 5, 12), lam(skin));
-      palm.scale.set(1.05, 1.2, 0.38);
-      palm.position.y = -0.05;
-      g.add(palm);
-      for (let i = 0; i < 4; i++) {
-        const lenY = [0.42, 0.54, 0.5, 0.38][i]!;
-        const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, lenY, 4, 10), lam(skin));
-        finger.position.set(-0.25 + i * 0.17, 0.34 + lenY / 2, 0);
-        g.add(finger);
-      }
-      const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.3, 3, 8), lam(skin));
-      thumb.rotation.z = -0.8;
-      thumb.position.set(0.42, -0.02, 0.02);
-      g.add(thumb);
-      const wrist = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.26, 4, 10), lam(skin));
-      wrist.position.y = -0.55;
-      g.add(wrist);
-      g.position.y = 0.06;
-      break;
-    }
-    case "mallet": {
-      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.05, 20), lam(0x7c4e27));
-      head.rotation.z = Math.PI / 2;
-      head.position.y = -0.28;
-      g.add(head);
-      for (const side of [-0.48, 0.48]) {
-        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.41, 0.41, 0.08, 20), lam(0x5b3a1d));
-        band.rotation.z = Math.PI / 2;
-        band.position.set(side, -0.28, 0);
-        g.add(band);
-      }
-      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.1, 12), lam(0xa8763e));
-      handle.position.y = 0.35;
-      g.add(handle);
-      break;
-    }
-  }
-  return g;
-}
 
 function disposeObject(group: THREE.Object3D) {
   group.traverse((o) => {
@@ -747,31 +905,33 @@ function disposeObject(group: THREE.Object3D) {
   });
 }
 
-const disposeGroup = disposeObject;
-
 function sampleCanvasColor(
   canvas: HTMLCanvasElement,
   u: number,
   v: number,
-  fallback: THREE.ColorRepresentation,
+  defaultColor: THREE.ColorRepresentation,
 ): THREE.Color {
   const ctx = canvas.getContext("2d");
-  if (!ctx) return new THREE.Color(fallback);
+  if (!ctx) return new THREE.Color(defaultColor);
   const data = ctx.getImageData(
     Math.floor(THREE.MathUtils.clamp(u, 0, 1) * (canvas.width - 1)),
     Math.floor(THREE.MathUtils.clamp(v, 0, 1) * (canvas.height - 1)),
     1,
     1,
   ).data;
-  if ((data[3] ?? 0) < 32) return new THREE.Color(fallback);
+  if ((data[3] ?? 0) < 32) return new THREE.Color(defaultColor);
   return new THREE.Color(
     (data[0] ?? 128) / 255,
     (data[1] ?? 96) / 255,
     (data[2] ?? 80) / 255,
-  );
+  ).convertSRGBToLinear();
 }
 
-// ── flesh softness (shared with 2D warp semantics) ───────────────────────────
+// ── flesh softness ───────────────────────────────────────────────────────────
+
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3);
+}
 
 function buildVertexSoftness(landmarks: Landmark3[]): Float32Array {
   const map = new Float32Array(landmarks.length).fill(0.7);

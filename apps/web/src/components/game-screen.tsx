@@ -1,11 +1,22 @@
 import { Button } from "@beat-it/ui/components/button";
 import { RotateCcw, Settings, UserRoundPlus, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import type { ReactionVoice } from "@/game/audio";
 import { type AttackKind, type GameSettings, type GameStats, PunchGame } from "@/game/engine";
 import { weaponImageUrl } from "@/game/face3d/assets";
-import type { Landmark3 } from "@/game/types";
+import { GAME_BACKGROUNDS } from "@/game/face3d/backgrounds";
+import type { PerformanceSnapshot } from "@/game/quality";
+import type { GameBackground, Landmark3 } from "@/game/types";
+
+declare global {
+  interface Window {
+    __beatItReview?: {
+      performance: () => PerformanceSnapshot;
+    };
+  }
+}
 
 const WEAPONS: Array<{ kind: AttackKind; label: string }> = [
   { kind: "punch", label: "Punch" },
@@ -25,6 +36,7 @@ interface StoredSettings extends GameSettings {
 const DEFAULT_SETTINGS: StoredSettings = {
   sound: true,
   reactionVoice: "female",
+  background: "gym",
   shake: true,
   particles: true,
   damage: true,
@@ -32,7 +44,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   sway: true,
 };
 
-type ToggleSetting = Exclude<keyof StoredSettings, "reactionVoice">;
+type ToggleSetting = Exclude<keyof StoredSettings, "background" | "reactionVoice">;
 
 const SETTING_LABELS: Record<ToggleSetting, string> = {
   sound: "Sound effects",
@@ -60,7 +72,12 @@ function loadSettings(): StoredSettings {
     const reactionVoice = REACTION_VOICES.includes(stored.reactionVoice as ReactionVoice)
       ? (stored.reactionVoice as ReactionVoice)
       : DEFAULT_SETTINGS.reactionVoice;
-    return { ...DEFAULT_SETTINGS, ...stored, reactionVoice };
+    const background = GAME_BACKGROUNDS.some(
+      (option) => option.kind === stored.background,
+    )
+      ? (stored.background as GameBackground)
+      : DEFAULT_SETTINGS.background;
+    return { ...DEFAULT_SETTINGS, ...stored, background, reactionVoice };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -72,10 +89,9 @@ export function GameScreen({
   onNewFace,
 }: {
   face: HTMLCanvasElement;
-  landmarks: Landmark3[] | null;
+  landmarks: Landmark3[];
   onNewFace: () => void;
 }) {
-  const bgRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<HTMLCanvasElement>(null);
   const fgRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<PunchGame | null>(null);
@@ -88,16 +104,40 @@ export function GameScreen({
   const selectedWeapon = WEAPONS.find((item) => item.kind === weapon) ?? WEAPONS[0]!;
 
   useEffect(() => {
-    const bg = bgRef.current;
     const gl = glRef.current;
     const fg = fgRef.current;
-    if (!bg || !gl || !fg) return;
-    const game = new PunchGame({ bg, fg, gl, face, landmarks, onStats: setStats });
-    gameRef.current = game;
-    return () => {
-      game.destroy();
-      gameRef.current = null;
-    };
+    if (!gl || !fg) return;
+    let game: PunchGame;
+    try {
+      game = new PunchGame({ fg, gl, face, landmarks, onStats: setStats });
+      gameRef.current = game;
+      const reviewEnabled =
+        import.meta.env.DEV ||
+        new URLSearchParams(window.location.search).has("review");
+      if (reviewEnabled) {
+        window.__beatItReview = {
+          performance: () => game.getPerformanceSnapshot(),
+        };
+        gl.dataset.performance = JSON.stringify(game.getPerformanceSnapshot());
+      }
+      const performanceInterval = reviewEnabled
+        ? window.setInterval(() => {
+            gl.dataset.performance = JSON.stringify(game.getPerformanceSnapshot());
+          }, 500)
+        : 0;
+      return () => {
+        if (performanceInterval) window.clearInterval(performanceInterval);
+        delete gl.dataset.performance;
+        delete window.__beatItReview;
+        game.destroy();
+        gameRef.current = null;
+      };
+    } catch (error) {
+      console.error("3D game initialization failed", error);
+      toast.error("This browser couldn't start the 3D game.");
+      onNewFace();
+      return;
+    }
   }, [face, landmarks]);
 
   useEffect(() => {
@@ -146,8 +186,7 @@ export function GameScreen({
       id="main-content"
       className="fixed inset-0 z-40 select-none overflow-hidden bg-[#0d0d10]"
     >
-      {/* canvas sandwich: 2D background → WebGL head → 2D effects */}
-      <canvas ref={bgRef} className="absolute inset-0 h-full w-full" />
+      {/* authored WebGL scene + lightweight 2D impact overlay */}
       <canvas ref={glRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       <canvas ref={fgRef} className="pointer-events-none absolute inset-0 h-full w-full" />
       <div
@@ -275,7 +314,33 @@ export function GameScreen({
                 <X className="size-4" />
               </button>
             </div>
-            <div className="space-y-0.5">
+            <fieldset className="game-background-fieldset">
+              <legend>Stage</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {GAME_BACKGROUNDS.map((option) => (
+                  <button
+                    key={option.kind}
+                    type="button"
+                    aria-pressed={settings.background === option.kind}
+                    onClick={() =>
+                      setSettings((current) => ({
+                        ...current,
+                        background: option.kind,
+                      }))
+                    }
+                    className="game-background-button"
+                  >
+                    <span
+                      className="game-background-swatch"
+                      data-background={option.kind}
+                      aria-hidden="true"
+                    />
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <div className="mt-3 space-y-0.5 border-t-2 border-[var(--ink)]/15 pt-2">
               {(Object.keys(SETTING_LABELS) as ToggleSetting[]).map((key) => (
                 <label
                   key={key}

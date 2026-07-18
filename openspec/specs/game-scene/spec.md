@@ -74,17 +74,17 @@ The head SHALL render with 2.5D depth cues: a soft directional highlight, an ell
 
 ### Requirement: Head renders as a 3D face mesh when landmarks are available
 
-When face landmarks are found for the face bitmap, the head SHALL render as a lit, textured 3D mesh built from those landmarks (including per-point depth), showing a real face silhouette and visible parallax as the head rotates. Punch impacts SHALL rotate the head in depth (yaw/pitch swing) in addition to the physics knockback, and SHALL dent the 3D mesh at the impact point. When landmarks are not found, the scene SHALL fall back to the 2D oval pipeline.
+The head SHALL render as a lit, textured 3D mesh built from a valid face-landmark set, showing a full head silhouette and visible parallax as it rotates. Punch impacts SHALL rotate the head in depth (yaw/pitch swing) in addition to physics knockback and SHALL dent the 3D mesh at the impact point. The system SHALL not enter gameplay without a valid 3D face rig and the required authored assets.
 
 #### Scenario: 3D head on landmark success
 
 - **WHEN** the game starts with a face whose landmarks were detected
 - **THEN** the head renders as a 3D mesh with lighting and a non-oval face silhouette, and punches visibly swing it in depth
 
-#### Scenario: Fallback without landmarks
+#### Scenario: Invalid landmarks
 
-- **WHEN** the game starts with a face bitmap that yields no landmarks
-- **THEN** the scene renders and plays using the 2D warp pipeline
+- **WHEN** face preparation yields no valid landmark rig
+- **THEN** the app returns to upload with a clear error and does not start a partial renderer
 
 ### Requirement: Dummy has a neck
 
@@ -97,7 +97,7 @@ The dummy SHALL connect the head to the torso with a skin-toned neck whose color
 
 ### Requirement: Scene renders as a lit 3D room
 
-When landmarks are available, the scene SHALL render fully in 3D: a room (floor and back wall), a spotlight casting real shadows from the dummy, a 3D torso, and a skin-tinted 3D neck connecting torso to the face mesh and following the head. Screen shake SHALL be applied as camera motion. The 2D pipeline remains the no-landmarks fallback.
+The scene SHALL render fully in 3D: a room (floor and back wall), a spotlight casting real shadows from the dummy, an authored 3D torso, and a skin-tinted 3D neck connecting torso to the full head shell and following it. Screen shake SHALL be applied as camera motion. This Three.js scene is the only gameplay renderer.
 
 #### Scenario: Room and shadow visible
 
@@ -108,4 +108,3 @@ When landmarks are available, the scene SHALL render fully in 3D: a room (floor 
 
 - **WHEN** the head is knocked around
 - **THEN** the lit 3D neck stays connected from torso to chin, tilting and stretching with the head
-

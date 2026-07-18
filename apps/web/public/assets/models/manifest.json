@@ -14,9 +14,9 @@
         "tomato": "weapon_tomato",
         "egg": "weapon_egg"
       },
-      "vertices": 11412,
-      "triangles": 22680,
-      "bytes": 519312
+      "vertices": 14164,
+      "triangles": 28248,
+      "bytes": 581828
     },
     "dummy": {
       "url": "/assets/models/dummy.glb",
