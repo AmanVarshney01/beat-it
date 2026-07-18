@@ -43,6 +43,7 @@ lerna-debug.log*
 # Better-T-Stack
 .alchemy
 .vercel
+.prisma
 
 # Testing
 coverage
@@ -56,3 +57,4 @@ temp
 
 # playwright mcp artifacts
 .playwright-mcp/
+.prisma/

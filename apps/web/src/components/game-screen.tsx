@@ -1,31 +1,30 @@
 import { Button } from "@beat-it/ui/components/button";
-import { RotateCcw, Settings, UserRoundPlus, Volume2, VolumeX } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { RotateCcw, Settings, UserRoundPlus, Volume2, VolumeX, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
+import type { ReactionVoice } from "@/game/audio";
 import { type AttackKind, type GameSettings, type GameStats, PunchGame } from "@/game/engine";
-import { renderWeaponIcon, weaponCursorUrl } from "@/game/face3d/scene3d";
+import { weaponImageUrl } from "@/game/face3d/assets";
 import type { Landmark3 } from "@/game/types";
 
 const WEAPONS: Array<{ kind: AttackKind; label: string }> = [
   { kind: "punch", label: "Punch" },
   { kind: "slap", label: "Slap" },
   { kind: "mallet", label: "Mallet" },
-  { kind: "fish", label: "Fish" },
   { kind: "tomato", label: "Tomato" },
   { kind: "egg", label: "Egg" },
-  { kind: "pie", label: "Pie" },
-  { kind: "chili", label: "Chili" },
-  { kind: "noodles", label: "Noodles" },
 ];
 
 const SETTINGS_KEY = "beat-it-settings";
 
 interface StoredSettings extends GameSettings {
   sound: boolean;
+  reactionVoice: ReactionVoice;
 }
 
 const DEFAULT_SETTINGS: StoredSettings = {
   sound: true,
+  reactionVoice: "female",
   shake: true,
   particles: true,
   damage: true,
@@ -33,19 +32,35 @@ const DEFAULT_SETTINGS: StoredSettings = {
   sway: true,
 };
 
-const SETTING_LABELS: Record<keyof StoredSettings, string> = {
+type ToggleSetting = Exclude<keyof StoredSettings, "reactionVoice">;
+
+const SETTING_LABELS: Record<ToggleSetting, string> = {
   sound: "Sound effects",
   shake: "Screen shake",
-  particles: "Stars & comic words",
+  particles: "Impact particles",
   damage: "Damage marks",
   dizzyStars: "Dizzy stars",
   sway: "Idle head sway",
 };
 
+const REACTION_VOICES: readonly ReactionVoice[] = ["off", "female", "male"];
+
 function loadSettings(): StoredSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+    if (!raw) {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      return {
+        ...DEFAULT_SETTINGS,
+        shake: !reduceMotion,
+        sway: !reduceMotion,
+      };
+    }
+    const stored = JSON.parse(raw) as Partial<StoredSettings>;
+    const reactionVoice = REACTION_VOICES.includes(stored.reactionVoice as ReactionVoice)
+      ? (stored.reactionVoice as ReactionVoice)
+      : DEFAULT_SETTINGS.reactionVoice;
+    return { ...DEFAULT_SETTINGS, ...stored, reactionVoice };
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -70,6 +85,7 @@ export function GameScreen({
   const [showSettings, setShowSettings] = useState(false);
   const weaponRef = useRef(weapon);
   weaponRef.current = weapon;
+  const selectedWeapon = WEAPONS.find((item) => item.kind === weapon) ?? WEAPONS[0]!;
 
   useEffect(() => {
     const bg = bgRef.current;
@@ -88,35 +104,50 @@ export function GameScreen({
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     const game = gameRef.current;
     if (!game) return;
-    game.sounds.muted = !settings.sound;
-    const { sound: _sound, ...engineSettings } = settings;
+    const { sound, reactionVoice, ...engineSettings } = settings;
+    game.sounds.reactionVoice = reactionVoice;
+    game.sounds.muted = !sound;
     game.updateSettings(engineSettings);
   }, [settings, face, landmarks]);
 
-  const toggle = (key: keyof StoredSettings) =>
-    setSettings((s) => ({ ...s, [key]: !s[key] }));
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+      if (event.key === "Escape") {
+        setShowSettings(false);
+        return;
+      }
+      const shortcut = Number(event.key);
+      const nextWeapon = WEAPONS[shortcut - 1];
+      if (nextWeapon) setWeapon(nextWeapon.kind);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
-  const selected = WEAPONS.find((w) => w.kind === weapon) ?? WEAPONS[0]!;
-  // weapon-model renders: picker icons + the scene cursor becomes the weapon
-  const icons = useMemo(
-    () =>
-      Object.fromEntries(
-        WEAPONS.map((w) => [w.kind, renderWeaponIcon(w.kind, 48).toDataURL()]),
-      ) as Record<AttackKind, string>,
-    [],
-  );
-  const cursorUrl = useMemo(() => weaponCursorUrl(weapon), [weapon]);
+  const toggle = (key: ToggleSetting) =>
+    setSettings((s) => ({ ...s, [key]: !s[key] }));
 
   return (
     // fullscreen overlay above the app shell — the face is the whole show
-    <div className="bg-background fixed inset-0 z-40 select-none overflow-hidden">
+    <main
+      id="main-content"
+      className="fixed inset-0 z-40 select-none overflow-hidden bg-[#0d0d10]"
+    >
       {/* canvas sandwich: 2D background → WebGL head → 2D effects */}
       <canvas ref={bgRef} className="absolute inset-0 h-full w-full" />
       <canvas ref={glRef} className="pointer-events-none absolute inset-0 h-full w-full" />
-      <canvas
-        ref={fgRef}
-        className="absolute inset-0 h-full w-full touch-none"
-        style={{ cursor: `url(${cursorUrl}) 16 16, crosshair` }}
+      <canvas ref={fgRef} className="pointer-events-none absolute inset-0 h-full w-full" />
+      <div
+        data-testid="hit-surface"
+        className="absolute inset-0 z-0 touch-none cursor-default"
         onPointerDown={(e) => {
           const game = gameRef.current;
           if (!game) return;
@@ -127,28 +158,48 @@ export function GameScreen({
       />
 
       {/* HUD: counters */}
-      <div className="pointer-events-none absolute top-4 left-4 space-y-1">
-        <div className="text-3xl font-black tabular-nums">
-          {stats.hits} <span className="text-base font-bold">HITS</span>
+      <div
+        className="game-stat-card pointer-events-none absolute z-20"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div className="flex items-end gap-2">
+          <span className="brand-display text-4xl leading-none tabular-nums">
+            {stats.hits}
+          </span>
+          <span className="pb-0.5 text-[0.64rem] font-bold tracking-[0.18em] text-white/45 uppercase">
+            hits
+          </span>
+        </div>
+        <div className="mt-2 flex gap-1" aria-label={`Damage stage ${stats.damageStage} of 4`}>
+          {[1, 2, 3, 4].map((stage) => (
+            <span
+              key={stage}
+              className={`h-1 w-6 rounded-full transition-colors duration-300 ${
+                stats.damageStage >= stage ? "bg-red-500" : "bg-white/10"
+              }`}
+            />
+          ))}
         </div>
         {stats.combo >= 2 && (
           <div
             key={stats.combo}
-            className="animate-in zoom-in text-2xl font-black text-orange-500 duration-150"
-            style={{ fontSize: `${Math.min(2.6, 1.4 + stats.combo * 0.06)}rem` }}
+            className="animate-in zoom-in mt-2 text-sm font-black tracking-wide text-[#ff7568] uppercase duration-150"
           >
-            {stats.combo}x COMBO!
+            {stats.combo}x combo
           </div>
         )}
       </div>
 
       {/* HUD: controls */}
-      <div className="absolute top-4 right-4 flex gap-2">
+      <div className="game-control-rail absolute z-40 flex gap-1.5">
         <Button
           variant="outline"
           size="icon"
           aria-label={settings.sound ? "Mute" : "Unmute"}
+          aria-pressed={!settings.sound}
           onClick={() => toggle("sound")}
+          className="game-control-button"
         >
           {settings.sound ? <Volume2 /> : <VolumeX />}
         </Button>
@@ -156,7 +207,10 @@ export function GameScreen({
           variant="outline"
           size="icon"
           aria-label="Settings"
+          aria-expanded={showSettings}
+          aria-controls="game-settings"
           onClick={() => setShowSettings((s) => !s)}
+          className="game-control-button"
         >
           <Settings />
         </Button>
@@ -165,67 +219,138 @@ export function GameScreen({
           size="icon"
           aria-label="Reset damage"
           onClick={() => gameRef.current?.reset()}
+          className="game-control-button"
         >
           <RotateCcw />
         </Button>
-        <Button variant="outline" onClick={onNewFace}>
+        <Button
+          variant="outline"
+          onClick={onNewFace}
+          className="game-control-button px-3 sm:px-3.5"
+        >
           <UserRoundPlus data-icon="inline-start" />
-          New face
+          <span className="hidden sm:inline">New face</span>
         </Button>
       </div>
 
       {/* settings panel */}
       {showSettings && (
-        <div className="bg-background/95 border-border absolute top-16 right-4 z-10 w-64 space-y-1 rounded-xl border p-4 shadow-xl backdrop-blur">
-          <h3 className="mb-2 font-black">Settings</h3>
-          {(Object.keys(SETTING_LABELS) as Array<keyof StoredSettings>).map((key) => (
-            <label
-              key={key}
-              className="hover:bg-muted flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm"
-            >
-              {SETTING_LABELS[key]}
-              <input
-                type="checkbox"
-                checked={settings[key]}
-                onChange={() => toggle(key)}
-                className="size-4 accent-red-600"
-              />
-            </label>
-          ))}
+        <>
+          <button
+            type="button"
+            aria-label="Close settings"
+            className="absolute inset-0 z-30 bg-black/10 backdrop-blur-[1px]"
+            onClick={() => setShowSettings(false)}
+          />
+          <section
+            id="game-settings"
+            aria-label="Game settings"
+            className="game-settings-panel"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-[0.62rem] font-bold tracking-[0.18em] text-white/35 uppercase">
+                  Game feel
+                </p>
+                <h2 className="text-lg font-bold tracking-tight">Settings</h2>
+              </div>
+              <button
+                type="button"
+                aria-label="Close settings"
+                onClick={() => setShowSettings(false)}
+                className="flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-red-400/70 focus-visible:outline-none"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="space-y-0.5">
+              {(Object.keys(SETTING_LABELS) as ToggleSetting[]).map((key) => (
+                <label
+                  key={key}
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/5"
+                >
+                  {SETTING_LABELS[key]}
+                  <input
+                    type="checkbox"
+                    checked={settings[key]}
+                    onChange={() => toggle(key)}
+                    className="game-switch"
+                  />
+                </label>
+              ))}
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/5">
+                Reaction voice
+                <select
+                  aria-label="Reaction voice"
+                  value={settings.reactionVoice}
+                  onChange={(event) => {
+                    const reactionVoice = event.target.value as ReactionVoice;
+                    setSettings((current) => ({ ...current, reactionVoice }));
+                    if (reactionVoice === "off") {
+                      gameRef.current?.sounds.stopVoice();
+                    } else {
+                      gameRef.current?.sounds.previewReactionVoice(reactionVoice);
+                    }
+                  }}
+                  className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold capitalize outline-none focus:border-red-400/60"
+                >
+                  <option value="off">Off</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </label>
+            </div>
+            <p className="px-2 pt-2 text-[0.68rem] leading-relaxed text-white/35">
+              Voices stay short and never stack during rapid hits.
+            </p>
+          </section>
+        </>
+      )}
+
+      {stats.hits === 0 && !showSettings && (
+        <div className="game-hint pointer-events-none absolute left-1/2 z-20 -translate-x-1/2">
+          <span className="game-hint-dot" />
+          Tap anywhere on the face
         </div>
       )}
 
       {/* weapon picker */}
-      <div className="absolute bottom-8 left-6 grid grid-cols-2 gap-2">
-        {WEAPONS.map((w) => (
-          <button
-            key={w.kind}
-            type="button"
-            aria-label={w.label}
-            title={w.label}
-            onClick={() => setWeapon(w.kind)}
-            className={`flex size-12 items-center justify-center rounded-2xl border-2 transition-transform ${
-              weapon === w.kind
-                ? "border-red-600 bg-red-600/20 scale-110"
-                : "border-border bg-background/70 hover:scale-105"
-            }`}
-          >
-            <img src={icons[w.kind]} alt={w.label} className="size-9" draggable={false} />
-          </button>
-        ))}
+      <div className="game-weapon-dock absolute z-30">
+        <div className="mb-1.5 flex items-center justify-between px-1">
+          <span className="text-[0.62rem] font-bold tracking-[0.2em] text-white/35 uppercase">
+            Selected
+          </span>
+          <span className="text-[0.68rem] font-bold tracking-wide text-white/75 uppercase">
+            {selectedWeapon.label}
+          </span>
+        </div>
+        <div className="flex gap-1.5">
+          {WEAPONS.map((item, index) => (
+            <button
+              key={item.kind}
+              type="button"
+              aria-label={item.label}
+              aria-pressed={weapon === item.kind}
+              aria-keyshortcuts={`${index + 1}`}
+              title={`${item.label} · ${index + 1}`}
+              onClick={() => setWeapon(item.kind)}
+              className={`game-weapon-button ${
+                weapon === item.kind ? "is-selected" : ""
+              }`}
+            >
+              <span className="game-weapon-shortcut" aria-hidden="true">
+                {index + 1}
+              </span>
+              <img
+                src={weaponImageUrl(item.kind)}
+                alt=""
+                className="size-9 object-contain"
+                draggable={false}
+              />
+            </button>
+          ))}
+        </div>
       </div>
-
-      {/* the big red button */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
-        <button
-          type="button"
-          onPointerDown={() => gameRef.current?.punch(undefined, weaponRef.current)}
-          className="flex items-center gap-3 rounded-full border-4 border-red-800 bg-red-600 px-10 py-5 text-2xl font-black text-white uppercase shadow-[0_6px_0_#7f1d1d] transition-transform active:translate-y-1 active:shadow-[0_2px_0_#7f1d1d]"
-        >
-          {selected.label}
-          <img src={icons[selected.kind]} alt="" className="size-8" draggable={false} />
-        </button>
-      </div>
-    </div>
+    </main>
   );
 }

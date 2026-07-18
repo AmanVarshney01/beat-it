@@ -3,11 +3,7 @@ export type AttackKind =
   | "slap"
   | "tomato"
   | "egg"
-  | "mallet"
-  | "fish"
-  | "pie"
-  | "chili"
-  | "noodles";
+  | "mallet";
 
 /** Normalized face landmark; z is relative depth, negative toward the viewer. */
 export interface Landmark3 {

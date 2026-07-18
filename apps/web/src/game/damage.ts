@@ -15,7 +15,7 @@ interface BruiseMark {
   seed: number;
 }
 
-export type SplatKind = "tomato" | "egg" | "pie" | "chili" | "noodles";
+export type SplatKind = "tomato" | "egg";
 
 interface SplatMark {
   x: number;
@@ -48,7 +48,7 @@ export class DamagePainter {
   }
 
   /** Impact attack at (u, v) in [0,1] texture coords: bruise there, or deepen a nearby one. */
-  hit(u: number, v: number, strength: number) {
+  hit(u: number, v: number, strength: number): boolean {
     const x = u * this.canvas.width;
     const y = v * this.canvas.height;
     const r = this.canvas.width * (0.1 + 0.05 * Math.min(strength, 2));
@@ -56,23 +56,39 @@ export class DamagePainter {
     if (near) {
       near.intensity = Math.min(2, near.intensity + 0.3 * strength);
       near.r = Math.min(this.canvas.width * 0.22, near.r * 1.06);
+      // Paint only the added intensity. Rebuilding every existing blurred
+      // bruise on every hit made rapid attacks progressively more expensive.
+      this.paintBruise({
+        ...near,
+        intensity: Math.min(0.5, 0.18 + 0.18 * strength),
+      });
     } else {
-      this.bruises.push({ x, y, r, intensity: 0.55 + 0.35 * strength, seed: this.seedCounter++ });
-      if (this.bruises.length > MAX_BRUISES) this.bruises.shift();
+      if (this.bruises.length >= MAX_BRUISES) return false;
+      const bruise = {
+        x,
+        y,
+        r,
+        intensity: 0.55 + 0.35 * strength,
+        seed: this.seedCounter++,
+      };
+      this.bruises.push(bruise);
+      this.paintBruise(bruise);
     }
-    this.repaint();
+    return true;
   }
 
   /** Food/gag attack at (u, v): paint a splat/flush mark. */
-  splat(u: number, v: number, kind: SplatKind) {
-    this.splats.push({
+  splat(u: number, v: number, kind: SplatKind): boolean {
+    if (this.splats.length >= MAX_SPLATS) return false;
+    const splat = {
       x: u * this.canvas.width,
       y: v * this.canvas.height,
       kind,
       seed: this.seedCounter++,
-    });
-    if (this.splats.length > MAX_SPLATS) this.splats.shift();
-    this.repaint();
+    };
+    this.splats.push(splat);
+    this.paintSplat(splat);
+    return true;
   }
 
   clear() {
@@ -152,84 +168,10 @@ export class DamagePainter {
     const r = this.canvas.width * 0.11;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(rand() * Math.PI * 2);
+    ctx.rotate(kind === "egg" ? (rand() - 0.5) * 0.44 : rand() * Math.PI * 2);
     ctx.filter = `blur(${Math.max(1, r * 0.03)}px)`;
 
-    if (kind === "noodles") {
-      // sauce stain + pale noodle squiggles
-      ctx.globalCompositeOperation = "multiply";
-      ctx.globalAlpha = 0.55;
-      const sauce = ctx.createRadialGradient(0, 0, 2, 0, 0, r * 0.9);
-      sauce.addColorStop(0, "rgba(150,96,42,0.7)");
-      sauce.addColorStop(1, "rgba(150,96,42,0)");
-      ctx.fillStyle = sauce;
-      fillEllipse(ctx, 0, 0, r * 0.95, r * 0.75);
-      ctx.globalCompositeOperation = "source-over";
-      ctx.strokeStyle = "rgba(233,211,143,0.9)";
-      ctx.lineCap = "round";
-      for (let i = 0; i < 5; i++) {
-        ctx.lineWidth = r * (0.05 + rand() * 0.03);
-        ctx.globalAlpha = 0.85;
-        ctx.beginPath();
-        const sx = (rand() - 0.5) * r;
-        const sy = (rand() - 0.5) * r * 0.6;
-        ctx.moveTo(sx, sy);
-        ctx.bezierCurveTo(
-          sx + (rand() - 0.5) * r * 0.8,
-          sy + r * 0.3,
-          sx + (rand() - 0.5) * r * 0.8,
-          sy + r * 0.7,
-          sx + (rand() - 0.5) * r * 0.5,
-          sy + r * (0.6 + rand() * 0.5),
-        );
-        ctx.stroke();
-      }
-    } else if (kind === "pie") {
-      // fluffy cream splat with crust chips — dessert, not liquid
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = "rgb(248,243,228)";
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2 + rand() * 0.5;
-        const d = r * (0.25 + rand() * 0.45);
-        fillEllipse(ctx, Math.cos(a) * d, Math.sin(a) * d, r * (0.28 + rand() * 0.2), r * (0.22 + rand() * 0.16));
-      }
-      fillEllipse(ctx, 0, 0, r * 0.6, r * 0.55);
-      ctx.fillStyle = "rgb(255,252,244)"; // whipped highlights
-      ctx.globalAlpha = 0.8;
-      for (let i = 0; i < 5; i++) {
-        const a = rand() * Math.PI * 2;
-        const d = rand() * r * 0.4;
-        fillEllipse(ctx, Math.cos(a) * d, Math.sin(a) * d, r * 0.18, r * 0.14);
-      }
-      ctx.fillStyle = "rgb(206,164,98)"; // crust chips
-      for (let i = 0; i < 5; i++) {
-        const a = rand() * Math.PI * 2;
-        const d = r * (0.45 + rand() * 0.45);
-        ctx.globalAlpha = 0.9;
-        ctx.save();
-        ctx.translate(Math.cos(a) * d, Math.sin(a) * d);
-        ctx.rotate(rand() * Math.PI);
-        ctx.fillRect(-r * 0.07, -r * 0.05, r * 0.14, r * 0.1);
-        ctx.restore();
-      }
-    } else if (kind === "chili") {
-      // warm diffuse flush — heat, not injury: no dark core, orange-red hues
-      ctx.globalCompositeOperation = "multiply";
-      ctx.filter = `blur(${Math.max(2, r * 0.12)}px)`;
-      ctx.globalAlpha = 0.75;
-      let heat = ctx.createRadialGradient(0, 0, r * 0.05, 0, 0, r * 1.1);
-      heat.addColorStop(0, "rgba(232,72,32,0.55)");
-      heat.addColorStop(0.6, "rgba(240,110,50,0.35)");
-      heat.addColorStop(1, "rgba(240,140,80,0)");
-      ctx.fillStyle = heat;
-      fillEllipse(ctx, 0, 0, r * 1.15, r * 0.95);
-      ctx.globalAlpha = 0.5;
-      heat = ctx.createRadialGradient(0, 0, 1, 0, 0, r * 0.5);
-      heat.addColorStop(0, "rgba(250,90,30,0.5)");
-      heat.addColorStop(1, "rgba(250,90,30,0)");
-      ctx.fillStyle = heat;
-      fillEllipse(ctx, 0, 0, r * 0.55, r * 0.45);
-    } else if (kind === "tomato") {
+    if (kind === "tomato") {
       // pulpy orange-red star with radiating streaks and seeds
       ctx.globalAlpha = 0.82;
       ctx.fillStyle = "rgb(214,72,38)";
@@ -254,38 +196,110 @@ export class DamagePainter {
         fillEllipse(ctx, Math.cos(a) * d, Math.sin(a) * d, r * 0.05, r * 0.03);
       }
     } else {
-      // broken egg: translucent white splat, yolk disc, shell chips
-      ctx.globalAlpha = 0.55;
-      ctx.fillStyle = "rgb(245,242,230)";
-      for (let i = 0; i < 7; i++) {
-        const a = (i / 7) * Math.PI * 2 + rand() * 0.6;
-        const len = r * (0.5 + rand() * 0.7);
-        ctx.save();
-        ctx.rotate(a);
-        fillEllipse(ctx, len * 0.5, 0, len * 0.5, r * (0.14 + rand() * 0.12));
-        ctx.restore();
-      }
-      fillEllipse(ctx, 0, 0, r * 0.7, r * 0.6);
-      ctx.globalAlpha = 0.92;
-      const yolk = ctx.createRadialGradient(-r * 0.05, -r * 0.05, 1, 0, 0, r * 0.34);
-      yolk.addColorStop(0, "rgb(252,204,80)");
-      yolk.addColorStop(1, "rgb(238,160,40)");
-      ctx.fillStyle = yolk;
-      fillEllipse(ctx, 0, 0, r * 0.34, r * 0.3);
-      ctx.fillStyle = "rgb(250,248,240)"; // shell chips
-      for (let i = 0; i < 4; i++) {
-        const a = rand() * Math.PI * 2;
-        const d = r * (0.4 + rand() * 0.5);
-        ctx.globalAlpha = 0.85;
-        ctx.save();
-        ctx.translate(Math.cos(a) * d, Math.sin(a) * d);
-        ctx.rotate(rand() * Math.PI);
-        ctx.fillRect(-r * 0.06, -r * 0.04, r * 0.12, r * 0.08);
-        ctx.restore();
-      }
+      paintBrokenEgg(ctx, r, rand);
     }
     ctx.restore();
   }
+}
+
+function paintBrokenEgg(ctx: CanvasRenderingContext2D, r: number, rand: () => number) {
+  // A raw broken egg: irregular translucent albumen, a dimensional yolk,
+  // a short gravity drip, and angular shell fragments.
+  ctx.filter = `blur(${Math.max(0.6, r * 0.012)}px)`;
+  ctx.globalCompositeOperation = "source-over";
+
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = "rgb(76,58,34)";
+  fillOrganicBlob(ctx, r * 0.04, r * 0.08, r * 1.08, r * 0.76, rand);
+
+  ctx.globalAlpha = 0.76;
+  ctx.fillStyle = "rgb(255,252,232)";
+  fillOrganicBlob(ctx, 0, 0, r, r * 0.7, rand);
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = "rgb(255,255,248)";
+  fillOrganicBlob(ctx, -r * 0.05, -r * 0.02, r * 0.68, r * 0.48, rand);
+
+  const dripX = (rand() - 0.5) * r * 0.34;
+  ctx.globalAlpha = 0.65;
+  ctx.fillStyle = "rgb(255,252,232)";
+  ctx.beginPath();
+  ctx.moveTo(dripX - r * 0.12, r * 0.4);
+  ctx.bezierCurveTo(
+    dripX - r * 0.08,
+    r * 0.72,
+    dripX - r * 0.04,
+    r * 0.92,
+    dripX,
+    r * 1.08,
+  );
+  ctx.bezierCurveTo(
+    dripX + r * 0.12,
+    r * 0.92,
+    dripX + r * 0.14,
+    r * 0.65,
+    dripX + r * 0.12,
+    r * 0.4,
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.globalAlpha = 0.98;
+  const yolk = ctx.createRadialGradient(-r * 0.12, -r * 0.14, 1, 0, 0, r * 0.38);
+  yolk.addColorStop(0, "rgb(255,224,102)");
+  yolk.addColorStop(0.58, "rgb(247,178,43)");
+  yolk.addColorStop(1, "rgb(203,111,18)");
+  ctx.fillStyle = yolk;
+  fillEllipse(ctx, 0, 0, r * 0.38, r * 0.33);
+
+  ctx.globalAlpha = 0.72;
+  ctx.fillStyle = "rgb(255,250,205)";
+  fillEllipse(ctx, -r * 0.11, -r * 0.1, r * 0.1, r * 0.065);
+
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + rand() * 0.6;
+    const d = r * (0.62 + rand() * 0.4);
+    const size = r * (0.12 + rand() * 0.05);
+    ctx.save();
+    ctx.translate(Math.cos(a) * d, Math.sin(a) * d * 0.72);
+    ctx.rotate(a + rand() * 0.9);
+    ctx.globalAlpha = 0.96;
+    ctx.fillStyle = "rgb(235,224,199)";
+    ctx.beginPath();
+    ctx.moveTo(-size, size * 0.55);
+    ctx.lineTo(-size * 0.3, -size * 0.72);
+    ctx.lineTo(size * 0.22, -size * 0.25);
+    ctx.lineTo(size, -size * 0.62);
+    ctx.lineTo(size * 0.72, size * 0.62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = "rgb(151,126,91)";
+    ctx.lineWidth = Math.max(1, r * 0.018);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function fillOrganicBlob(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+  rand: () => number,
+) {
+  const points = 18;
+  ctx.beginPath();
+  for (let i = 0; i <= points; i++) {
+    const a = (i / points) * Math.PI * 2;
+    const wobble = 0.78 + rand() * 0.35;
+    const px = x + Math.cos(a) * rx * wobble;
+    const py = y + Math.sin(a) * ry * wobble;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
 }
 
 function fillEllipse(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {

@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { GameScreen } from "@/components/game-screen";
-import Loader from "@/components/loader";
 import { ManualCrop } from "@/components/manual-crop";
 import { UploadScreen } from "@/components/upload-screen";
+import { preloadGameAssets } from "@/game/face3d/assets";
 import type { Landmark3 } from "@/game/types";
 import { cropFaceOval, regionFromDetection, type OvalRegion } from "@/lib/face/crop";
 import { detectFace, getFaceLandmarks } from "@/lib/face/detector";
@@ -26,7 +26,7 @@ function HomeComponent() {
   // landmarks (with depth) power the 3D head; null falls back to the 2D warp
   const startGame = async (face: HTMLCanvasElement) => {
     setPhase({ name: "detecting" });
-    const landmarks = await getFaceLandmarks(face);
+    const [landmarks] = await Promise.all([getFaceLandmarks(face), preloadGameAssets()]);
     setPhase({ name: "game", face, landmarks });
   };
 
@@ -68,10 +68,25 @@ function HomeComponent() {
       return <UploadScreen onImage={handleImage} onDemo={loadDemoFace} />;
     case "detecting":
       return (
-        <div className="flex h-full flex-col items-center justify-center gap-3">
-          <Loader />
-          <p className="text-muted-foreground animate-pulse">Finding the face…</p>
-        </div>
+        <main
+          id="main-content"
+          className="relative flex h-full flex-col items-center justify-center overflow-hidden bg-[#0d0d10] px-6 text-center text-white"
+        >
+          <div className="landing-grid pointer-events-none absolute inset-0 opacity-50" />
+          <div className="face-scan" aria-hidden="true">
+            <span className="face-scan-ring" />
+            <span className="face-scan-ring face-scan-ring-inner" />
+            <span className="face-scan-line" />
+          </div>
+          <p className="mt-8 text-xs font-bold tracking-[0.2em] text-red-400 uppercase">
+            Building the rig
+          </p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">Finding the face</h1>
+          <p className="text-muted-foreground mt-2 max-w-xs text-sm">
+            Mapping the eyes, cheeks and jaw for exact hit placement.
+          </p>
+          <span className="sr-only">Loading face detection</span>
+        </main>
       );
     case "manual":
       return (

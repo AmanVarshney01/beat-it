@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:compute": "vite build && cp server.mjs dist/server.mjs",
     "serve": "vite preview",
     "start": "vite",
+    "start:compute": "node dist/server.mjs",
     "check-types": "vite build && tsc --noEmit"
   },
   "dependencies": {

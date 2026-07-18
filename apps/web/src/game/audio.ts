@@ -3,9 +3,72 @@
  * The AudioContext is created lazily on the first punch (a user gesture), so
  * autoplay policies never block playback.
  */
+import type { AttackKind } from "./types";
+
+export type ReactionVoice = "off" | "female" | "male";
+
+const REACTION_LINES = [
+  "Ouch!",
+  "Oh no!",
+  "Please stop!",
+  "Hey!",
+  "Ow!",
+  "Not again!",
+  "Okay, okay!",
+] as const;
+
+const VOICE_NAME_HINTS: Record<Exclude<ReactionVoice, "off">, readonly string[]> = {
+  female: [
+    "samantha",
+    "karen",
+    "victoria",
+    "tessa",
+    "moira",
+    "ava",
+    "allison",
+    "susan",
+    "zira",
+    "google us english",
+  ],
+  male: [
+    "daniel",
+    "alex",
+    "aaron",
+    "fred",
+    "tom",
+    "ralph",
+    "bruce",
+    "albert",
+    "david",
+    "mark",
+  ],
+};
+
 export class SoundPlayer {
   private ctx: AudioContext | null = null;
-  muted = false;
+  private mutedValue = false;
+  private reactionVoiceValue: ReactionVoice = "female";
+  private lastReactionAt = -Infinity;
+  private lastLine = "";
+  private activeUtterance: SpeechSynthesisUtterance | null = null;
+
+  get muted() {
+    return this.mutedValue;
+  }
+
+  set muted(value: boolean) {
+    this.mutedValue = value;
+    if (value) this.stopVoice();
+  }
+
+  get reactionVoice() {
+    return this.reactionVoiceValue;
+  }
+
+  set reactionVoice(value: ReactionVoice) {
+    this.reactionVoiceValue = value;
+    if (value === "off") this.stopVoice();
+  }
 
   private ensureContext(): AudioContext | null {
     if (typeof AudioContext === "undefined") return null;
@@ -76,33 +139,6 @@ export class SoundPlayer {
     over.connect(overGain).connect(ctx.destination);
     over.start(t);
     over.stop(t + 0.15);
-  }
-
-  /** Wet fish thwap: slap crack layered with a plop. */
-  fish(strength = 1) {
-    this.slap(strength * 0.8);
-    this.splat();
-  }
-
-  /** Sizzle for the chili gag. */
-  sizzle() {
-    if (this.muted) return;
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const t = ctx.currentTime;
-    const noise = ctx.createBufferSource();
-    noise.buffer = this.noiseBuffer(ctx, 0.35);
-    noise.loop = true;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 2800;
-    filter.Q.value = 0.7;
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.28, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(t);
-    noise.stop(t + 0.4);
   }
 
   /** Sharp bright crack for a slap. */
@@ -210,6 +246,91 @@ export class SoundPlayer {
     }
   }
 
+  /** Short spoken reaction using the browser's installed local voices. */
+  reaction(_attack: AttackKind, strength = 1) {
+    if (this.muted || this.reactionVoice === "off") return;
+    const now = performance.now();
+    // Rapid attacks remain punchy; spoken lines never pile up into noise.
+    if (now - this.lastReactionAt < 850) return;
+    const candidates = REACTION_LINES.filter((line) => line !== this.lastLine);
+    const line =
+      candidates[Math.floor(Math.random() * candidates.length)] ?? REACTION_LINES[0];
+    if (!line) return;
+    this.speak(line, this.reactionVoice, strength, false);
+  }
+
+  /** User-gesture preview for the settings selector. */
+  previewReactionVoice(voice: Exclude<ReactionVoice, "off">) {
+    this.reactionVoice = voice;
+    this.speak("Ouch!", voice, 1, true);
+  }
+
+  stopVoice() {
+    if (
+      this.activeUtterance &&
+      typeof window !== "undefined" &&
+      "speechSynthesis" in window
+    ) {
+      window.speechSynthesis.cancel();
+    }
+    this.activeUtterance = null;
+  }
+
+  dispose() {
+    this.stopVoice();
+    if (this.ctx && this.ctx.state !== "closed") void this.ctx.close();
+    this.ctx = null;
+    this.noiseCache = null;
+  }
+
+  private speak(
+    line: string,
+    voiceMode: Exclude<ReactionVoice, "off">,
+    strength: number,
+    force: boolean,
+  ) {
+    if (
+      this.muted ||
+      typeof window === "undefined" ||
+      typeof SpeechSynthesisUtterance === "undefined" ||
+      !("speechSynthesis" in window)
+    ) {
+      return;
+    }
+
+    const synth = window.speechSynthesis;
+    const now = performance.now();
+    if (!force && synth.speaking && now - this.lastReactionAt < 1_600) return;
+    if (synth.speaking) synth.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(line);
+    utterance.lang = "en-US";
+    utterance.volume = 0.92;
+    utterance.rate =
+      voiceMode === "female"
+        ? 1.18 + Math.min(strength - 1, 0.5) * 0.06
+        : 1.1 + Math.min(strength - 1, 0.5) * 0.05;
+    utterance.pitch =
+      voiceMode === "female"
+        ? 1.18 + Math.random() * 0.1
+        : 0.72 + Math.random() * 0.08;
+    utterance.voice = pickReactionVoice(synth.getVoices(), voiceMode);
+    utterance.onend = () => {
+      if (this.activeUtterance === utterance) this.activeUtterance = null;
+    };
+    utterance.onerror = () => {
+      if (this.activeUtterance === utterance) this.activeUtterance = null;
+    };
+
+    this.activeUtterance = utterance;
+    if (!force) {
+      this.lastReactionAt = now;
+      this.lastLine = line;
+    }
+    synth.resume();
+    synth.speak(utterance);
+  }
+
   private noiseCache: AudioBuffer | null = null;
 
   private noiseBuffer(ctx: AudioContext, seconds: number): AudioBuffer {
@@ -220,4 +341,17 @@ export class SoundPlayer {
     this.noiseCache = buffer;
     return buffer;
   }
+}
+
+function pickReactionVoice(
+  voices: readonly SpeechSynthesisVoice[],
+  mode: Exclude<ReactionVoice, "off">,
+) {
+  const english = voices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+  const pool = english.length > 0 ? english : voices;
+  for (const hint of VOICE_NAME_HINTS[mode]) {
+    const match = pool.find((voice) => voice.name.toLowerCase().includes(hint));
+    if (match) return match;
+  }
+  return pool.find((voice) => voice.localService) ?? pool[0] ?? null;
 }

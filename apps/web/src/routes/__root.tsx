@@ -14,11 +14,15 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "beat-it",
+        title: "Beat It — Browser stress dummy",
       },
       {
         name: "description",
         content: "Upload a face, mount it on the dummy, punch your stress away.",
+      },
+      {
+        name: "theme-color",
+        content: "#0d0d10",
       },
     ],
     links: [
@@ -41,13 +45,22 @@ function RootComponent() {
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="grid grid-rows-[auto_1fr] h-svh">
+        <a
+          href="#main-content"
+          className="focus:bg-background focus:text-foreground fixed top-3 left-3 z-[60] -translate-y-20 rounded-md px-3 py-2 text-sm font-semibold transition-transform focus:translate-y-0"
+        >
+          Skip to content
+        </a>
+        <div className="grid h-dvh grid-rows-[auto_1fr]">
           <Header />
           <Outlet />
         </div>
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      {import.meta.env.DEV &&
+        !new URLSearchParams(window.location.search).has("demo") && (
+          <TanStackRouterDevtools position="bottom-left" />
+        )}
     </>
   );
 }

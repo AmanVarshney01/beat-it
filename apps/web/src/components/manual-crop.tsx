@@ -110,7 +110,7 @@ export function ManualCrop({
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-4">
       <div className="space-y-1 text-center">
-        <h2 className="text-2xl font-black">Couldn't find a face 😅</h2>
+        <h2 className="text-2xl font-black">Couldn't find a face</h2>
         <p className="text-muted-foreground text-sm">
           No problem — drag the oval over the face and hit confirm.
         </p>

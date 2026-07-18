@@ -1,0 +1,36 @@
+{
+  "generator": "Blender 5.2",
+  "canonicalAxes": {
+    "up": "+Y in glTF",
+    "weaponForward": "+X"
+  },
+  "models": {
+    "arsenal": {
+      "url": "/assets/models/arsenal.glb",
+      "roots": {
+        "punch": "weapon_punch",
+        "slap": "weapon_slap",
+        "mallet": "weapon_mallet",
+        "tomato": "weapon_tomato",
+        "egg": "weapon_egg"
+      },
+      "vertices": 11412,
+      "triangles": 22680,
+      "bytes": 519312
+    },
+    "dummy": {
+      "url": "/assets/models/dummy.glb",
+      "root": "dummy",
+      "vertices": 1176,
+      "triangles": 2336,
+      "bytes": 61100
+    }
+  },
+  "thumbnails": {
+    "punch": "/assets/weapons/punch.png",
+    "slap": "/assets/weapons/slap.png",
+    "mallet": "/assets/weapons/mallet.png",
+    "tomato": "/assets/weapons/tomato.png",
+    "egg": "/assets/weapons/egg.png"
+  }
+}
