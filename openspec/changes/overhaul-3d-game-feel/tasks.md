@@ -90,6 +90,7 @@
 - [x] 12.2 Add persisted cap visibility, six-digit color, and 12-character front-text settings
 - [x] 12.3 Render cap text through one reusable canvas texture with automatic light/dark contrast
 - [x] 12.4 Verify cap fit, text centering, live updates, persistence, recoil attachment, and mobile settings layout
+- [x] 12.5 Refine the cap to a medium fitted crown, matte fabric, angled curved bill, and cap-aware dizzy-star orbit
 
 ## 13. Blood Spatter
 

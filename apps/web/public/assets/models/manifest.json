@@ -30,14 +30,13 @@
       "root": "accessory_cap",
       "colorableMeshes": [
         "cap_crown",
-        "cap_front_panel",
         "cap_brim",
         "cap_button"
       ],
       "labelMesh": "cap_label",
-      "vertices": 949,
-      "triangles": 1830,
-      "bytes": 44860
+      "vertices": 845,
+      "triangles": 1626,
+      "bytes": 38136
     }
   },
   "thumbnails": {

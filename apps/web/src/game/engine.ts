@@ -742,14 +742,24 @@ export class PunchGame {
       ctx.save();
       for (let i = 0; i < 3; i++) {
         const a = this.elapsed * 4 + (i * Math.PI * 2) / 3;
+        const orbitX = this.settings.capEnabled
+          ? Math.cos(a) * r * 1.22
+          : Math.cos(a) * r * 0.9;
+        const orbitY = this.settings.capEnabled
+          ? pos.y -
+            r * (1.2 + 0.5 * (1 - Math.abs(Math.cos(a)))) +
+            Math.sin(a) * r * 0.08
+          : pos.y - ry - r * 0.25 + Math.sin(a) * r * 0.22;
         ctx.save();
         ctx.globalAlpha = 0.9;
-        ctx.translate(
-          pos.x + Math.cos(a) * r * 0.9,
-          pos.y - ry - r * 0.25 + Math.sin(a) * r * 0.22,
-        );
+        ctx.translate(pos.x + orbitX, orbitY);
         ctx.rotate(a * 0.5);
-        drawStar(ctx, r * 0.14, "#ffd94d", "#c98800");
+      drawStar(
+        ctx,
+        r * (this.settings.capEnabled ? 0.12 : 0.14),
+        "#ffd94d",
+        "#c98800",
+      );
         ctx.restore();
       }
       ctx.restore();

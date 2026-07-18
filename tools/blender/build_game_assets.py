@@ -361,7 +361,7 @@ def make_materials() -> dict[str, bpy.types.Material]:
         "dummy": material("dummy_rubber", (0.035, 0.045, 0.065, 1), roughness=0.58, coat=0.06),
         "dummy_dark": material("dummy_red_accent", (0.34, 0.008, 0.014, 1), roughness=0.44, coat=0.08),
         "dummy_metal": material("dummy_base_metal", (0.08, 0.09, 0.11, 1), roughness=0.31, metallic=0.72),
-        "cap": material("cap_fabric", (0.42, 0.025, 0.035, 1), roughness=0.72, coat=0.025),
+        "cap": material("cap_fabric", (0.42, 0.025, 0.035, 1), roughness=0.86),
         "cap_label": material("cap_label", (1.0, 1.0, 1.0, 1), roughness=0.76),
     }
 
@@ -554,7 +554,7 @@ def build_dummy(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
 
 
 def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
-    """An oversized, structured baseball cap with a curved forward bill."""
+    """A clean fitted baseball cap with a compact crown and curved bill."""
     r = root("accessory_cap")
 
     # Build the crown from tapered elliptical rings instead of squashing a
@@ -563,11 +563,12 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     # inside it.
     crown_segments = 48
     crown_rings = (
-        (0.080, 0.410, 0.335, 0.175),
-        (0.175, 0.425, 0.345, 0.050),
-        (0.285, 0.395, 0.325, 0.000),
-        (0.395, 0.300, 0.250, 0.000),
-        (0.455, 0.150, 0.125, 0.000),
+        (0.085, 0.380, 0.305, 0.285),
+        (0.160, 0.400, 0.320, 0.090),
+        (0.255, 0.370, 0.290, 0.000),
+        (0.345, 0.295, 0.220, 0.000),
+        (0.405, 0.175, 0.130, 0.000),
+        (0.430, 0.080, 0.060, 0.000),
     )
     crown_vertices: list[tuple[float, float, float]] = []
     for z, radius_x, radius_y, front_drop in crown_rings:
@@ -581,7 +582,7 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
                     z - front_drop * front_factor,
                 )
             )
-    crown_vertices.append((0, 0, 0.485))
+    crown_vertices.append((0, 0.035, 0.438))
     crown_faces: list[tuple[int, ...]] = []
     for ring_index in range(len(crown_rings) - 1):
         start = ring_index * crown_segments
@@ -611,32 +612,20 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     smooth(assign(crown, m["cap"]))
     parent(crown, r)
 
-    # A shallow structured front panel bridges the crown into the bill. It is
-    # deliberately flat across the forehead so the cap sits on top of the
-    # character instead of tracing the face oval.
-    rounded_box(
-        "cap_front_panel",
-        (0, -0.340, 0.070),
-        (0.335, 0.045, 0.070),
-        m["cap"],
-        bevel=0.018,
-        owner=r,
-    )
-
     # The bill projects toward -Y (the authored front), dips in the middle,
     # and rises at both sides. Its rounded outline and thin profile stop it
     # looking like a straight block laid across the forehead.
     bill_rows = (
-        (-0.245, 0.290, 0.040, 0.000),
-        (-0.315, 0.330, 0.039, 0.003),
-        (-0.395, 0.365, 0.036, 0.007),
-        (-0.480, 0.375, 0.032, 0.011),
-        (-0.555, 0.355, 0.027, 0.014),
-        (-0.615, 0.290, 0.022, 0.014),
-        (-0.650, 0.140, 0.018, 0.008),
+        (-0.225, 0.270, 0.065, 0.000),
+        (-0.305, 0.305, 0.060, 0.002),
+        (-0.400, 0.335, 0.045, 0.005),
+        (-0.500, 0.345, 0.025, 0.008),
+        (-0.585, 0.320, 0.000, 0.010),
+        (-0.650, 0.250, -0.030, 0.009),
+        (-0.685, 0.105, -0.055, 0.004),
     )
     bill_columns = 17
-    bill_thickness = 0.026
+    bill_thickness = 0.022
     bill_top: list[tuple[float, float, float]] = []
     for y, half_width, center_z, edge_lift in bill_rows:
         for column in range(bill_columns):
@@ -699,8 +688,8 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
 
     uv_sphere(
         "cap_button",
-        (0, 0, 0.485),
-        (0.052, 0.052, 0.030),
+        (0, 0.035, 0.435),
+        (0.046, 0.046, 0.026),
         m["cap"],
         segments=24,
         rings=14,
@@ -710,8 +699,8 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     # Rotating the plane makes its local +Z normal face toward that direction.
     plane(
         "cap_label",
-        (0, -0.356, 0.235),
-        (0.315, 0.115),
+        (0, -0.326, 0.225),
+        (0.285, 0.105),
         m["cap_label"],
         rotation=(math.pi / 2, 0, 0),
         owner=r,
@@ -900,7 +889,6 @@ def main() -> None:
                 "root": "accessory_cap",
                 "colorableMeshes": [
                     "cap_crown",
-                    "cap_front_panel",
                     "cap_brim",
                     "cap_button",
                 ],

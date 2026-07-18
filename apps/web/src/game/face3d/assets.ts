@@ -81,7 +81,6 @@ export function preloadGameAssets(): Promise<void> {
     }
     for (const requiredPart of [
       "cap_crown",
-      "cap_front_panel",
       "cap_brim",
       "cap_button",
       "cap_label",

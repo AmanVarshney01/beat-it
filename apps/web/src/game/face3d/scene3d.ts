@@ -353,8 +353,9 @@ export class Scene3D {
 
     this.capAccessory = instantiateCap();
     this.capAccessory.name = "player_cap";
-    this.capAccessory.position.set(0, 0.255, -0.02);
-    this.capAccessory.scale.set(0.84, 0.62, 0.84);
+    this.capAccessory.position.set(0, 0.27, -0.02);
+    this.capAccessory.rotation.y = 0.22;
+    this.capAccessory.scale.set(0.8, 0.56, 0.8);
     this.capAccessory.visible = false;
     this.capAccessory.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
