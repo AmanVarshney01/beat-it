@@ -554,35 +554,34 @@ def build_dummy(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
 
 
 def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
-    """A clean fitted baseball cap with a compact crown and curved bill."""
+    """A compact, clean baseball cap that rests above the forehead."""
     r = root("accessory_cap")
 
-    # Build the crown from tapered elliptical rings instead of squashing a
-    # sphere. The tall front and tighter top read as a fitted baseball cap,
-    # while the open lower edge lets the photographed hair sit naturally
-    # inside it.
+    # Keep every point on the lower edge at the same height. A previous
+    # front-drop deformation pulled the crown below the bill, producing a
+    # helmet-like flap and visible intersections with the head.
     crown_segments = 48
     crown_rings = (
-        (0.085, 0.380, 0.305, 0.285),
-        (0.160, 0.400, 0.320, 0.090),
-        (0.255, 0.370, 0.290, 0.000),
-        (0.345, 0.295, 0.220, 0.000),
-        (0.405, 0.175, 0.130, 0.000),
-        (0.430, 0.080, 0.060, 0.000),
+        (0.105, 0.385, 0.300),
+        (0.155, 0.390, 0.305),
+        (0.215, 0.375, 0.292),
+        (0.275, 0.340, 0.265),
+        (0.330, 0.285, 0.220),
+        (0.375, 0.210, 0.158),
+        (0.405, 0.120, 0.085),
     )
     crown_vertices: list[tuple[float, float, float]] = []
-    for z, radius_x, radius_y, front_drop in crown_rings:
+    for z, radius_x, radius_y in crown_rings:
         for index in range(crown_segments):
             angle = math.tau * index / crown_segments
-            front_factor = max(0.0, -math.sin(angle)) ** 2
             crown_vertices.append(
                 (
                     math.cos(angle) * radius_x,
                     math.sin(angle) * radius_y,
-                    z - front_drop * front_factor,
+                    z,
                 )
             )
-    crown_vertices.append((0, 0.035, 0.438))
+    crown_vertices.append((0, 0.015, 0.420))
     crown_faces: list[tuple[int, ...]] = []
     for ring_index in range(len(crown_rings) - 1):
         start = ring_index * crown_segments
@@ -612,20 +611,20 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     smooth(assign(crown, m["cap"]))
     parent(crown, r)
 
-    # The bill projects toward -Y (the authored front), dips in the middle,
-    # and rises at both sides. Its rounded outline and thin profile stop it
-    # looking like a straight block laid across the forehead.
+    # The bill starts just inside the crown and projects toward authored -Y.
+    # It stays narrow, thin, and gently curved so it reads as a brim instead
+    # of a shelf cutting across the face.
     bill_rows = (
-        (-0.225, 0.270, 0.065, 0.000),
-        (-0.305, 0.305, 0.060, 0.002),
-        (-0.400, 0.335, 0.045, 0.005),
-        (-0.500, 0.345, 0.025, 0.008),
-        (-0.585, 0.320, 0.000, 0.010),
-        (-0.650, 0.250, -0.030, 0.009),
-        (-0.685, 0.105, -0.055, 0.004),
+        (-0.215, 0.250, 0.108, 0.000),
+        (-0.275, 0.280, 0.102, 0.004),
+        (-0.345, 0.305, 0.090, 0.009),
+        (-0.420, 0.310, 0.072, 0.015),
+        (-0.495, 0.285, 0.050, 0.020),
+        (-0.560, 0.225, 0.026, 0.020),
+        (-0.600, 0.105, 0.010, 0.012),
     )
     bill_columns = 17
-    bill_thickness = 0.022
+    bill_thickness = 0.018
     bill_top: list[tuple[float, float, float]] = []
     for y, half_width, center_z, edge_lift in bill_rows:
         for column in range(bill_columns):
@@ -688,8 +687,8 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
 
     uv_sphere(
         "cap_button",
-        (0, 0.035, 0.435),
-        (0.046, 0.046, 0.026),
+        (0, 0.015, 0.420),
+        (0.038, 0.038, 0.021),
         m["cap"],
         segments=24,
         rings=14,
@@ -699,8 +698,8 @@ def build_cap(m: dict[str, bpy.types.Material]) -> bpy.types.Object:
     # Rotating the plane makes its local +Z normal face toward that direction.
     plane(
         "cap_label",
-        (0, -0.326, 0.225),
-        (0.285, 0.105),
+        (0, -0.307, 0.245),
+        (0.250, 0.090),
         m["cap_label"],
         rotation=(math.pi / 2, 0, 0),
         owner=r,

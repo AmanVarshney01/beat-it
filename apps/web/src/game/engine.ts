@@ -754,12 +754,12 @@ export class PunchGame {
         ctx.globalAlpha = 0.9;
         ctx.translate(pos.x + orbitX, orbitY);
         ctx.rotate(a * 0.5);
-      drawStar(
-        ctx,
-        r * (this.settings.capEnabled ? 0.12 : 0.14),
-        "#ffd94d",
-        "#c98800",
-      );
+        drawStar(
+          ctx,
+          r * (this.settings.capEnabled ? 0.12 : 0.14),
+          "#ffd94d",
+          "#c98800",
+        );
         ctx.restore();
       }
       ctx.restore();
