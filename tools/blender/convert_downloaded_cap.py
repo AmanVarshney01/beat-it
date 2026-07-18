@@ -60,11 +60,11 @@ print("SPANS", spans, "ASYM", asym, "VISOR_AXIS", visor_axis)
 # Rotate mesh data directly with matrices.
 from mathutils import Matrix
 
-# Game-forward is Blender -Y (glTF exporter: Blender -Y -> glTF +Z).
+# Game-forward is Blender +Y here (verified in-game with a flip test).
 xform = Matrix.Identity(4)
 if visor_axis == "y":
-    if abs(y0) > abs(y1):
-        pass  # visor already on -Y (game front)
+    if abs(y1) > abs(y0):
+        pass  # visor already on +Y (game front)
     else:
         xform = Matrix.Rotation(math.pi, 4, "Z") @ xform
 elif visor_axis == "z":
@@ -89,10 +89,10 @@ cap.data.update()
 (x0, x1), (y0, y1), (z0, z1) = bbox()
 print("SCALED BBOX", (x0, x1), (y0, y1), (z0, z1))
 
-# position: center x, rim (bottom) at z 0.165, crown BACK (+Y) at +0.30;
-# the bill extends toward -Y (game front)
+# position: center x, rim (bottom) at z 0.165, crown BACK (-Y) at -0.30;
+# the bill extends toward +Y (game front)
 dz = 0.165 - z0
-dy = 0.3 - y1
+dy = -0.3 - y0
 cap.data.transform(Matrix.Translation((-(x0 + x1) / 2, dy, dz)))
 cap.data.update()
 (x0, x1), (y0, y1), (z0, z1) = bbox()
@@ -100,11 +100,11 @@ print("FINAL BBOX", (x0, x1), (y0, y1), (z0, z1))
 
 # stretch and droop the bill only (verts beyond the crown front at y < -0.30,
 # confirmed from exported accessor bounds) so it reads from the head-on camera
-BILL_HINGE = -0.30
+BILL_HINGE = 0.30
 for v in cap.data.vertices:
-    if v.co.y < BILL_HINGE:
-        ext = BILL_HINGE - v.co.y
-        v.co.y = BILL_HINGE - ext * 1.28
+    if v.co.y > BILL_HINGE:
+        ext = v.co.y - BILL_HINGE
+        v.co.y = BILL_HINGE + ext * 1.28
         v.co.z -= ext * 0.22
 cap.data.update()
 

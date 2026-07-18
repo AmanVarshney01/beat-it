@@ -5,7 +5,7 @@ import type { GLTF } from "three/addons/loaders/GLTFLoader.js";
 import type { AttackKind } from "../types";
 
 // bump when any .glb changes — busts stale browser caches of same-URL assets
-const ASSET_VERSION = "7";
+const ASSET_VERSION = "8";
 const ARSENAL_URL = `/assets/models/arsenal.glb?v=${ASSET_VERSION}`;
 const DUMMY_URL = `/assets/models/dummy.glb?v=${ASSET_VERSION}`;
 const CAP_URL = `/assets/models/cap.glb?v=${ASSET_VERSION}`;
