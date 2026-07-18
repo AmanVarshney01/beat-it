@@ -35,3 +35,15 @@ The system SHALL provide a persisted player-cap option with an on/off control, u
 #### Scenario: Cap settings persist
 - **WHEN** the player reloads after changing cap visibility, color, or text
 - **THEN** the same cap customization is restored from local settings
+
+### Requirement: Blood spatter control
+
+The system SHALL provide an independent persisted blood-spatter toggle. Disabling it SHALL prevent new surface-blood marks and airborne blood droplets without disabling bruises, food residue, impact particles, physics, or sound.
+
+#### Scenario: Blood spatter disabled
+- **WHEN** the player disables blood spatter and lands an impact attack
+- **THEN** the attack retains its other enabled feedback but adds no blood stain or blood droplets
+
+#### Scenario: Blood setting persists
+- **WHEN** the player changes the blood-spatter toggle and reloads the app
+- **THEN** the selected blood-spatter preference is restored

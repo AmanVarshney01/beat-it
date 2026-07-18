@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
   shake: true,
   particles: true,
   damage: true,
+  blood: true,
   dizzyStars: true,
   sway: true,
 };
@@ -57,6 +58,7 @@ const SETTING_LABELS: Record<ToggleSetting, string> = {
   shake: "Screen shake",
   particles: "Impact particles",
   damage: "Damage marks",
+  blood: "Blood spatter",
   dizzyStars: "Dizzy stars",
   sway: "Idle head sway",
 };

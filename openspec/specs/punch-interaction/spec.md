@@ -46,7 +46,7 @@ The system SHALL allow punches in quick succession without input drops; a new pu
 
 ### Requirement: Selectable attack arsenal
 
-The system SHALL offer five slapstick attack types — punch, slap, mallet, tomato throw, egg throw — selectable from a weapon dock in the scene UI, each rendered from authored 3D models with a distinct animation, impact physics, and sound. The selected attack SHALL be used by the HIT button, by direct taps on the head, and by the Space key. Attacks SHALL remain impact/food-splat slapstick only — no cutting, burning, stabbing, blood, or gore.
+The system SHALL offer five slapstick attack types — punch, slap, mallet, tomato throw, egg throw — selectable from a weapon dock in the scene UI, each rendered from authored 3D models with a distinct animation, impact physics, and sound. The selected attack SHALL be used by the HIT button, by direct taps on the head, and by the Space key. Attacks SHALL remain impact/food-splat slapstick with optional bounded blood spatter—no cutting, burning, stabbing, open wounds, or gore.
 
 #### Scenario: Slap spins the head
 

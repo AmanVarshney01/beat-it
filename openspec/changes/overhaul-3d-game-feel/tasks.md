@@ -48,7 +48,7 @@
 
 - [ ] 7.1 Route Matter.js impulse, head deformation, squash, camera, particles, sound, and residue through the same ContactEvent
 - [x] 7.2 Make squash/compression weapon-specific, volume-preserving, bounded, and synchronized with contact
-- [x] 7.3 Spawn weapon-specific particles/fragments from the resolved contact with blood-free palettes and caps
+- [x] 7.3 Spawn weapon-specific particles/fragments from the resolved contact with distinct palettes and strict caps
 - [x] 7.4 Synchronize whoosh/contact/residue audio to attack phases and add bounded heavy-hit hit-stop
 - [x] 7.5 Store all bruises and food residue at resolved UVs and verify registration through deformation and recovery
 - [x] 7.6 Add persisted Off/Female/Male reaction voices with short lines, mute integration, overlap throttling, preview, and lifecycle cleanup
@@ -90,3 +90,10 @@
 - [x] 12.2 Add persisted cap visibility, six-digit color, and 12-character front-text settings
 - [x] 12.3 Render cap text through one reusable canvas texture with automatic light/dark contrast
 - [x] 12.4 Verify cap fit, text centering, live updates, persistence, recoil attachment, and mobile settings layout
+
+## 13. Blood Spatter
+
+- [x] 13.1 Add pooled, gravity-driven blood droplets that continue in the resolved attack direction
+- [x] 13.2 Paint bounded surface spatter at the exact resolved face UV
+- [x] 13.3 Add a persisted independent blood-spatter setting
+- [x] 13.4 Verify contact registration, direction, reset cleanup, settings behavior, and quality-tier particle caps

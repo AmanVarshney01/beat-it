@@ -28,7 +28,7 @@ The system SHALL track a combo that increments when punches land within a short 
 
 ### Requirement: Cartoon damage accumulates at hit thresholds
 
-The system SHALL paint damage into the face texture at the exact impact point of each landed attack: impact attacks (punch, slap) paint realistic blood-free bruises, and repeated hits near an existing bruise SHALL deepen it instead of stacking a new mark; food attacks (tomato, egg) paint food splats. Mark counts are capped, damage persists until reset, and in 3D mode all marks wrap and light with the face mesh. Bruising SHALL remain blood-free — no cuts, blood, or gore. Hit-count thresholds SHALL continue to drive the max-damage dizzy-stars state.
+The system SHALL paint damage into the face texture at the exact impact point of each landed attack: impact attacks paint realistic bruises and, when blood spatter is enabled, a compact surface-blood mark; repeated hits near an existing bruise SHALL deepen it instead of stacking a new bruise; food attacks paint food splats. Mark counts are capped, damage persists until reset, and in 3D mode all marks wrap and light with the face mesh. Blood effects SHALL remain bounded surface stains and droplets with no cuts, open wounds, burns, or gore. Hit-count thresholds SHALL continue to drive the max-damage dizzy-stars state.
 
 #### Scenario: Damage appears where the hit lands
 
@@ -55,10 +55,20 @@ The system SHALL paint damage into the face texture at the exact impact point of
 - **WHEN** the hit count passes the final threshold
 - **THEN** dizzy stars orbit the head and mark caps prevent unbounded painting
 
-#### Scenario: Damage stays blood-free
+#### Scenario: Blood spatter is localized
+
+- **WHEN** blood spatter is enabled and punch, slap, or mallet lands
+- **THEN** a compact blood mark is centered at the resolved impact and remains attached to that face region
+
+#### Scenario: Blood spatter is disabled
+
+- **WHEN** blood spatter is disabled and an impact attack lands
+- **THEN** bruising still renders but no blood stain or airborne blood droplets are added
+
+#### Scenario: Injury detail remains non-gory
 
 - **WHEN** any damage renders
-- **THEN** the face shows bruising and food splats only — no blood, cuts, burns, or gore
+- **THEN** the game shows bruises, bounded surface blood, or food splats with no cuts, open wounds, burns, or gore
 
 ### Requirement: Damage and counters can be reset
 

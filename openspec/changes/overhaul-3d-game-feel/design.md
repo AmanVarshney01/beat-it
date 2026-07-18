@@ -24,7 +24,7 @@ The game must remain fully client-side, validate arbitrary uploaded faces before
 
 **Non-Goals:**
 
-- Photorealistic skin, wounds, blood, cuts, burns, or gore.
+- Photorealistic skin, cuts, open wounds, burns, or gore.
 - Full-body ragdoll physics, destructible environments, multiplayer, or a backend.
 - Replacing MediaPipe or inventing gameplay for an invalid face reconstruction.
 - Requiring Blender at application runtime. Blender is an offline authoring/build tool only.
@@ -128,7 +128,7 @@ Reference budgets:
 - [A proxy shell mismatches unusual faces] → derive conservative dimensions from robust landmark anchors, keep the shell visually subordinate, and reject unusable reconstructions before play.
 - [PBR and shadows regress low-end devices] → cap DPR, pool instances, monitor moving frame time, and lower shadow/particle counts through quality tiers.
 - [A full rewrite breaks the working interaction loop] → migrate behind a local renderer switch and land systems in vertical slices with deterministic comparison scenes.
-- [More realism makes violence feel harsher] → keep exaggerated timing, toy-like weapons, bright food residue, blood-free physical particles, and the existing prohibition on injury detail.
+- [More realism makes violence feel harsher] → keep exaggerated timing, toy-like weapons, bright food residue, small optional surface-only blood spatter, and the existing prohibition on cuts, open wounds, and gore.
 
 ## Migration Plan
 

@@ -2,7 +2,7 @@
 
 ### Requirement: Cartoon damage accumulates at hit thresholds
 
-The system SHALL place blood-free bruises and food residue from the resolved contact UV and SHALL keep them registered to the same face region while the head rotates and deforms. Repeated impacts near an existing bruise SHALL deepen it instead of stacking a new mark. Mark counts SHALL be capped, residue SHALL persist until reset, and threshold counts SHALL continue to drive max-damage dizzy stars.
+The system SHALL place bruises, optional bounded surface-blood marks, and food residue from the resolved contact UV and SHALL keep them registered to the same face region while the head rotates and deforms. Repeated impacts near an existing bruise SHALL deepen it instead of stacking a new bruise. Mark counts SHALL be capped, residue SHALL persist until reset, and threshold counts SHALL continue to drive max-damage dizzy stars.
 
 #### Scenario: Damage appears where the hit lands
 
@@ -44,10 +44,20 @@ The system SHALL place blood-free bruises and food residue from the resolved con
 - **WHEN** many attacks add or deepen marks in quick succession
 - **THEN** each accepted hit paints only its changed mark instead of reconstructing every historical blurred mark, with no progressive frame-time slowdown
 
-#### Scenario: Damage stays blood-free
+#### Scenario: Blood spatter stays at the resolved contact
+
+- **WHEN** blood spatter is enabled and an impact attack resolves a valid face contact
+- **THEN** its compact surface mark is centered on the resolved UV and directional droplets originate from the corresponding visible contact
+
+#### Scenario: Blood spatter is independently disabled
+
+- **WHEN** blood spatter is disabled and an impact attack resolves
+- **THEN** bruising and other enabled feedback continue without adding blood marks or droplets
+
+#### Scenario: Damage remains non-gory
 
 - **WHEN** any damage or residue renders
-- **THEN** the face shows bruising, tomato pulp, egg residue, or physical debris only—no blood, cuts, open wounds, burns, or gore
+- **THEN** the face shows bruising, bounded surface blood, tomato pulp, egg residue, or physical debris with no cuts, open wounds, burns, or gore
 
 ### Requirement: Damage and counters can be reset
 
