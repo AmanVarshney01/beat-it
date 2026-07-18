@@ -46,7 +46,7 @@ The system SHALL allow punches in quick succession without input drops; a new pu
 
 ### Requirement: Selectable attack arsenal
 
-The system SHALL offer multiple slapstick attack types — punch, slap, tomato throw, egg throw — selectable from a weapon picker in the scene UI. The selected attack SHALL be used by both the action button and direct taps on the head, and each attack SHALL have a distinct animation, impact physics, and sound. Attacks SHALL remain impact/food-splat slapstick only — no cutting, burning, stabbing, blood, or gore.
+The system SHALL offer five slapstick attack types — punch, slap, mallet, tomato throw, egg throw — selectable from a weapon dock in the scene UI, each rendered from authored 3D models with a distinct animation, impact physics, and sound. The selected attack SHALL be used by the HIT button, by direct taps on the head, and by the Space key. Attacks SHALL remain impact/food-splat slapstick only — no cutting, burning, stabbing, blood, or gore.
 
 #### Scenario: Slap spins the head
 
@@ -58,19 +58,10 @@ The system SHALL offer multiple slapstick attack types — punch, slap, tomato t
 - **WHEN** the user selects tomato or egg and targets a point on the head
 - **THEN** the projectile arcs in, splats at that point, and applies a soft knock
 
-### Requirement: Extended slapstick arsenal
-
-The weapon picker SHALL additionally offer mallet, fish, pie, and chili attacks, each with distinct animation, physics, sound, and impact effect: mallet strikes from above with the strongest knock and an exaggerated squash; fish slaps from the side with a wet thwap; pie splats cream at the impact point; chili paints a red-hot flush at the impact point with fire/steam particles. All attacks SHALL remain slapstick — no blades, fire-on-flesh, impalement, or gore.
-
 #### Scenario: Mallet bonk
 
 - **WHEN** the user lands a mallet attack
-- **THEN** the mallet drops from above, the head squashes hard and recoils downward-strongest, and a deep bonk plays
-
-#### Scenario: Chili heat
-
-- **WHEN** the user lands a chili attack at a point on the face
-- **THEN** a warm red flush appears at that point with fire/steam particles and a sizzle sound, with no burn or char imagery
+- **THEN** the mallet drops from above, the head squashes hard, and a deep bonk plays
 
 ### Requirement: Weapons render as 3D models with depth
 
@@ -81,21 +72,17 @@ In 3D mode every weapon SHALL render as a 3D model (no emoji): thrown food SHALL
 - **WHEN** the user throws a tomato at the face
 - **THEN** a 3D tomato approaches from the viewer, shrinking toward the scene, and splats at the aimed point
 
-### Requirement: Cursor shows the selected weapon
+### Requirement: Keyboard controls
 
-The mouse cursor over the scene SHALL display the currently selected weapon's image.
+The system SHALL support keyboard play: number keys 1–5 select the corresponding weapon, Space triggers the selected attack, and Escape closes the settings panel. Shortcuts SHALL be ignored while typing in form controls.
 
-#### Scenario: Cursor follows selection
+#### Scenario: Number key selects weapon
 
-- **WHEN** the user selects the mallet
-- **THEN** the scene cursor becomes a small mallet image
+- **WHEN** the user presses 3 during play
+- **THEN** the third weapon in the dock becomes selected
 
-### Requirement: Noodles attack
+#### Scenario: Space attacks
 
-The arsenal SHALL include a noodles attack: a clump of noodles drops from above, drapes noodle strands on the head at the impact point and leaves a sauce stain there.
-
-#### Scenario: Noodle mess
-
-- **WHEN** the user lands a noodles attack
-- **THEN** noodle strands hang on the head at the impact point and a sauce stain marks the face until reset
+- **WHEN** the user presses Space during play
+- **THEN** the selected attack fires at the head
 

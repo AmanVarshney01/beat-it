@@ -52,10 +52,10 @@ export function UploadScreen({
             <span className="size-1.5 rounded-full bg-red-400 shadow-[0_0_16px_rgba(248,113,113,0.9)]" />
             Browser-only stress dummy
           </p>
-          <h1 className="brand-display text-[clamp(3.9rem,10vw,7.8rem)] leading-[0.78] tracking-[-0.085em] text-balance uppercase">
-            Beat
+          <h1 className="brand-display text-[clamp(3rem,7.5vw,5.8rem)] leading-[0.95] text-balance uppercase">
+            <span className="arcade-gradient-text">Beat</span>
             <br />
-            <span className="text-red-500">it.</span>
+            <span className="arcade-gradient-text inline-block -rotate-2">it.</span>
           </h1>
           <p className="text-muted-foreground mt-8 max-w-md text-pretty text-lg leading-relaxed">
             Drop in a face. Pick a hit. Let the dummy take it. Every photo stays

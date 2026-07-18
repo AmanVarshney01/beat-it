@@ -124,6 +124,11 @@ export function GameScreen({
         setShowSettings(false);
         return;
       }
+      if (event.code === "Space") {
+        event.preventDefault();
+        gameRef.current?.punch(undefined, weaponRef.current);
+        return;
+      }
       const shortcut = Number(event.key);
       const nextWeapon = WEAPONS[shortcut - 1];
       if (nextWeapon) setWeapon(nextWeapon.kind);
@@ -164,7 +169,10 @@ export function GameScreen({
         aria-atomic="true"
       >
         <div className="flex items-end gap-2">
-          <span className="brand-display text-4xl leading-none tabular-nums">
+          <span
+            key={stats.hits}
+            className="arcade-num animate-in zoom-in text-4xl leading-none tabular-nums duration-150"
+          >
             {stats.hits}
           </span>
           <span className="pb-0.5 text-[0.64rem] font-bold tracking-[0.18em] text-white/45 uppercase">
@@ -181,15 +189,19 @@ export function GameScreen({
             />
           ))}
         </div>
-        {stats.combo >= 2 && (
-          <div
-            key={stats.combo}
-            className="animate-in zoom-in mt-2 text-sm font-black tracking-wide text-[#ff7568] uppercase duration-150"
-          >
-            {stats.combo}x combo
-          </div>
-        )}
       </div>
+
+      {/* combo takes center stage, like it deserves */}
+      {stats.combo >= 2 && (
+        <div
+          key={stats.combo}
+          aria-hidden="true"
+          className="game-combo-pop arcade-gradient-text pointer-events-none absolute left-1/2 z-20 -translate-x-1/2"
+          style={{ fontSize: `${Math.min(6.5, 2 + stats.combo * 0.22)}rem` }}
+        >
+          {stats.combo}x combo
+        </div>
+      )}
 
       {/* HUD: controls */}
       <div className="game-control-rail absolute z-40 flex gap-1.5">
@@ -310,9 +322,22 @@ export function GameScreen({
       {stats.hits === 0 && !showSettings && (
         <div className="game-hint pointer-events-none absolute left-1/2 z-20 -translate-x-1/2">
           <span className="game-hint-dot" />
-          Tap anywhere on the face
+          Tap the face · space to swing
         </div>
       )}
+
+      {/* the big red button — every arcade needs one (Space works too) */}
+      <button
+        type="button"
+        aria-keyshortcuts="Space"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          gameRef.current?.punch(undefined, weaponRef.current);
+        }}
+        className="game-attack-button absolute z-30 max-sm:right-3 max-sm:bottom-[8.2rem] max-sm:px-6 max-sm:py-3.5 max-sm:text-lg"
+      >
+        Hit!
+      </button>
 
       {/* weapon picker */}
       <div className="game-weapon-dock absolute z-30">
