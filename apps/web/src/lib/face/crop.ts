@@ -11,7 +11,7 @@ export interface OvalRegion {
   angle: number;
 }
 
-export const FACE_ASPECT = 1.55; // ry / rx — tall enough to keep the hair
+export const FACE_ASPECT = 1.3; // ry / rx of the cutout oval
 
 const OUT_WIDTH = 420;
 const OUT_HEIGHT = Math.round(OUT_WIDTH * FACE_ASPECT);
@@ -20,16 +20,12 @@ const OUT_HEIGHT = Math.round(OUT_WIDTH * FACE_ASPECT);
 export function regionFromDetection(face: DetectedFace): OvalRegion {
   const { box, leftEye, rightEye } = face;
   const angle = Math.atan2(leftEye.y - rightEye.y, leftEye.x - rightEye.x);
-  const rx = box.width * 0.62;
-  const ry = rx * FACE_ASPECT;
   return {
     cx: box.x + box.width / 2,
-    // detection boxes hug the eyes/nose; the oval grows upward from there so
-    // the hair stays in frame (chin edge unchanged: cy shifts up by the same
-    // amount the radius grew versus the old 1.3 aspect)
-    cy: box.y + box.height * 0.58 - rx * (FACE_ASPECT - 1.3),
-    rx,
-    ry,
+    // detection boxes hug the eyes/nose; shift down a touch to include the chin
+    cy: box.y + box.height * 0.58,
+    rx: box.width * 0.62,
+    ry: box.width * 0.62 * FACE_ASPECT,
     angle,
   };
 }

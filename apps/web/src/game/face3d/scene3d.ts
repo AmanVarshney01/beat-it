@@ -309,22 +309,6 @@ export class Scene3D {
     this.faceUnderlay.position.z = -0.22;
     this.faceUnderlay.castShadow = true;
 
-    // dome textured with the photo's own top band, so the hair continues up
-    // the skull instead of a flat-color egg
-    const hairCanvas = document.createElement("canvas");
-    hairCanvas.width = 256;
-    hairCanvas.height = 256;
-    const hairCtx = hairCanvas.getContext("2d");
-    if (hairCtx) {
-      hairCtx.drawImage(face, face.width * 0.24, face.height * 0.02, face.width * 0.52, face.height * 0.16, 0, 0, 256, 256);
-      const shade = hairCtx.createLinearGradient(0, 0, 0, 256);
-      shade.addColorStop(0, "rgba(0,0,0,0.14)");
-      shade.addColorStop(0.5, "rgba(0,0,0,0)");
-      hairCtx.fillStyle = shade;
-      hairCtx.fillRect(0, 0, 256, 256);
-    }
-    const hairTexture = new THREE.CanvasTexture(hairCanvas);
-    hairTexture.colorSpace = THREE.SRGBColorSpace;
     this.hairCap = new THREE.Mesh(
       new THREE.SphereGeometry(
         0.355,
@@ -336,14 +320,12 @@ export class Scene3D {
         Math.PI * 0.57,
       ),
       new THREE.MeshStandardMaterial({
-        color: 0xcccccc,
-        map: hairTexture,
+        color: headBackColor,
         roughness: 0.86,
         envMapIntensity: 0.18,
       }),
     );
-    // stays behind the photo — the taller crop keeps the real hair in frame
-    this.hairCap.scale.set(0.94, 0.98, 0.8);
+    this.hairCap.scale.set(0.94, 1.04, 0.79);
     this.hairCap.position.set(0, 0.02, -0.29);
     this.hairCap.castShadow = true;
     this.hairCap.receiveShadow = true;
@@ -379,8 +361,8 @@ export class Scene3D {
     // lands on every head, not just the demo face (offset calibrated there)
     const foreheadLm = landmarks[LM_FOREHEAD];
     const hairlineY = foreheadLm ? -(foreheadLm.y - 0.5) : 0.44;
-    this.capAccessory.position.set(0, hairlineY - 0.2, 0.16);
-    this.capAccessory.scale.set(1.16, 0.97, 1.16); // y compensates the taller head scale
+    this.capAccessory.position.set(0, hairlineY - 0.35, 0.16);
+    this.capAccessory.scale.setScalar(1.16);
     // pitched forward so the near-horizontal bill reads from the head-on camera
     this.capAccessory.rotation.x = 0.26;
     this.capAccessory.visible = false;
