@@ -34,7 +34,7 @@
 - [ ] 5.3 Move local deformation into a HeadRig with surface-normal displacement, tangential drag, boundary stiffness, bulge, and capped recovery
 - [ ] 5.4 Implement raycastable target capture and immutable ContactEvent output with world/local point, normal, UV, impulse, and strength
 - [x] 5.5 Add validity checks that return bad 3D reconstructions to upload with a clear error
-- [x] 5.6 Close the inner-mouth topology with the source-photo texture and remove the opaque face underlay so photographed teeth remain visible without a gray oval
+- [x] 5.6 Close the inner-mouth topology with the source-photo texture, remove the opaque face underlay, and clip the proxy shell to rear-only geometry so photographed teeth remain visible without a gray oval
 
 ## 6. Attack Timeline and Weapons
 

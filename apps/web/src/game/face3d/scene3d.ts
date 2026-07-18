@@ -285,7 +285,10 @@ export class Scene3D {
     const skinColor = sampledSkinColor.clone().multiplyScalar(0.96);
     const headBackColor = sampleCanvasColor(face, 0.5, 0.1, neckColor).multiplyScalar(0.8);
     this.headShell = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 42, 32),
+      // Rear hemisphere only: the front-facing photo must never have an
+      // opaque oval sitting behind it. The shell becomes visible naturally
+      // as side/back volume only when recoil rotates the head.
+      new THREE.SphereGeometry(0.35, 42, 32, Math.PI, Math.PI),
       new THREE.MeshPhysicalMaterial({
         color: skinColor,
         roughness: 0.78,
@@ -294,9 +297,6 @@ export class Scene3D {
       }),
     );
     this.headShell.scale.set(0.92, 1.02, 0.76);
-    // Keep every proxy surface behind the deepest landmark. The former shell
-    // intersected recessed cheek/mouth triangles and showed up as hard patches
-    // across the photographed face.
     this.headShell.position.set(0, 0.005, -0.27);
     this.headShell.castShadow = true;
     this.headShell.receiveShadow = true;
