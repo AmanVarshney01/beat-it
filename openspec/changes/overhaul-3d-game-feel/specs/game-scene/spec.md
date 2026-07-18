@@ -16,7 +16,7 @@ The render loop SHALL target 60fps on the reference desktop, SHALL remain respon
 
 ### Requirement: Head renders as a 3D face mesh when landmarks are available
 
-When face landmarks are found, the head SHALL render as a normalized, lit front-face mesh integrated with a complete proxy shell, simple ears, hair cap, and edge transition so it reads as a stable head volume rather than an open sheet. Landmark depth SHALL be centered, bounded, and scaled relative to facial anchors. Punch impacts SHALL rotate the head in depth and SHALL deform the contact region with anatomically weighted falloff. When landmarks are not found or the mesh fails validity checks, the system SHALL not enter gameplay.
+When face landmarks are found, the head SHALL render as a normalized, lit front-face mesh integrated with a clean proxy shell, hair cap, and edge transition so it reads as a stable head volume rather than an open sheet. The head SHALL NOT add separate ear geometry. Landmark depth SHALL be centered, bounded, and scaled relative to facial anchors. Punch impacts SHALL rotate the head in depth and SHALL deform the contact region with anatomically weighted falloff. When landmarks are not found or the mesh fails validity checks, the system SHALL not enter gameplay.
 
 #### Scenario: Stable 3D head on landmark success
 

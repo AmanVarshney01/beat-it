@@ -67,7 +67,7 @@ The engine and render systems communicate through typed records instead of recon
 
 Landmarks will be normalized from stable eye, nose, cheek, forehead, and chin anchors instead of directly subtracting `0.5`. Raw depth will be median-centered, clamped, smoothed, and scaled relative to inter-eye distance. The front landmark surface will sit in a shallow proxy head shell with an edge skirt so the silhouette reads as a volume and the neck does not terminate against a paper mask.
 
-The photographed face remains the front texture. A complete sampled-color shell, simple ears, a subdued hair cap, and an adaptive skin-toned neck provide a coherent side and rear silhouette without claiming photorealistic reconstruction. Boundary vertices are stiffer than cheeks and jaw. Local deformation acts along the surface normal plus a smaller tangential component, with capped displacement and volume-preserving surrounding bulge.
+The photographed face remains the front texture. A clean sampled-color shell, a subdued hair cap, and an adaptive skin-toned neck provide a coherent silhouette without adding separate ear geometry or claiming photorealistic reconstruction. Boundary vertices are stiffer than cheeks and jaw. Local deformation acts along the surface normal plus a smaller tangential component, with capped displacement and volume-preserving surrounding bulge.
 
 Alternative considered: generate a full head from the photo. Rejected because a single image and the existing model do not provide reliable back-of-head, ear, or hair geometry.
 

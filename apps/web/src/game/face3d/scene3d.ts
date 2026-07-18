@@ -62,7 +62,6 @@ export class Scene3D {
   private faceUnderlay: THREE.Mesh;
   private headShell: THREE.Mesh;
   private hairCap: THREE.Mesh;
-  private ears: [THREE.Mesh, THREE.Mesh];
   private edgeSkirt: THREE.Mesh;
   private texture: THREE.CanvasTexture;
   private torso: THREE.Object3D;
@@ -324,22 +323,6 @@ export class Scene3D {
     this.hairCap.castShadow = true;
     this.hairCap.receiveShadow = true;
 
-    const earGeometry = new THREE.SphereGeometry(0.1, 22, 16);
-    const earMaterial = new THREE.MeshStandardMaterial({
-      color: skinColor,
-      roughness: 0.8,
-      envMapIntensity: 0.2,
-    });
-    const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-    const rightEar = new THREE.Mesh(earGeometry, earMaterial);
-    leftEar.position.set(-0.32, -0.005, -0.1);
-    rightEar.position.set(0.32, -0.005, -0.1);
-    leftEar.scale.set(0.72, 1.28, 0.58);
-    rightEar.scale.copy(leftEar.scale);
-    leftEar.castShadow = true;
-    rightEar.castShadow = true;
-    this.ears = [leftEar, rightEar];
-
     this.edgeSkirt = new THREE.Mesh(
       buildEdgeSkirtGeometry(this.rest),
       new THREE.MeshStandardMaterial({
@@ -357,8 +340,6 @@ export class Scene3D {
     this.headGroup.add(
       this.headShell,
       this.hairCap,
-      leftEar,
-      rightEar,
       this.faceUnderlay,
       this.edgeSkirt,
       this.faceMesh,
@@ -833,8 +814,6 @@ export class Scene3D {
     disposeObject(this.headShell);
     disposeObject(this.hairCap);
     disposeObject(this.edgeSkirt);
-    this.ears[0].geometry.dispose();
-    (this.ears[0].material as THREE.Material).dispose();
     this.texture.dispose();
     disposeObject(this.neck);
     disposeObject(this.floor);
