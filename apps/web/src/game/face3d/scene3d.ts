@@ -357,10 +357,14 @@ export class Scene3D {
     const authoredCap = instantiateCap();
     this.capAccessory = authoredCap.children.length > 0 ? authoredCap : buildProceduralCap();
     this.capAccessory.name = "player_cap";
-    this.capAccessory.position.set(0, 0.11, 0.06);
+    // seat height derives from this face's own hairline landmark so the cap
+    // lands on every head, not just the demo face (offset calibrated there)
+    const foreheadLm = landmarks[LM_FOREHEAD];
+    const hairlineY = foreheadLm ? -(foreheadLm.y - 0.5) : 0.44;
+    this.capAccessory.position.set(0, hairlineY - 0.35, 0.16);
+    this.capAccessory.scale.setScalar(1.16);
     // pitched forward so the near-horizontal bill reads from the head-on camera
     this.capAccessory.rotation.x = 0.26;
-    this.capAccessory.rotation.z = -0.045;
     this.capAccessory.visible = false;
     this.capAccessory.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -390,10 +394,10 @@ export class Scene3D {
     // center bulge can never swallow it
     this.capLabelMaterial.depthTest = false;
     const labelArc = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.46, 0.46, 0.15, 24, 1, true, -0.48, 0.96),
+      new THREE.CylinderGeometry(0.36, 0.36, 0.14, 24, 1, true, -0.44, 0.88),
       this.capLabelMaterial,
     );
-    labelArc.position.set(0, 0.27, 0.02);
+    labelArc.position.set(0, 0.26, 0.04);
     labelArc.rotation.x = -0.1;
     labelArc.scale.y = -1; // cylinder UVs are bottom-origin vs top-origin texture
     labelArc.renderOrder = 7;
