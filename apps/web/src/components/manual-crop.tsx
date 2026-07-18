@@ -108,17 +108,17 @@ export function ManualCrop({
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 p-4">
+    <div className="poster-ground flex h-full flex-col items-center justify-center gap-4 p-4">
       <div className="space-y-1 text-center">
-        <h2 className="text-2xl font-black">Couldn't find a face</h2>
-        <p className="text-muted-foreground text-sm">
+        <h2 className="brand-display text-xl uppercase">Couldn't find a face</h2>
+        <p className="text-sm font-medium opacity-60">
           No problem — drag the oval over the face and hit confirm.
         </p>
       </div>
 
       <canvas
         ref={canvasRef}
-        className="h-[55vh] w-full max-w-2xl cursor-move touch-none rounded-xl"
+        className="h-[55vh] w-full max-w-2xl cursor-move touch-none rounded-xl border-3 border-[var(--ink)] bg-[#1a1a1e] shadow-[6px_6px_0_var(--ink)]"
         onPointerDown={(e) => {
           dragging.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);

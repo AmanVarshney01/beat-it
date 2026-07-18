@@ -70,19 +70,19 @@ function HomeComponent() {
       return (
         <main
           id="main-content"
-          className="relative flex h-full flex-col items-center justify-center overflow-hidden bg-[#0d0d10] px-6 text-center text-white"
+          className="poster-ground relative flex h-full flex-col items-center justify-center overflow-hidden px-6 text-center"
         >
-          <div className="landing-grid pointer-events-none absolute inset-0 opacity-50" />
+          <div className="landing-grid pointer-events-none absolute inset-0" />
           <div className="face-scan" aria-hidden="true">
             <span className="face-scan-ring" />
             <span className="face-scan-ring face-scan-ring-inner" />
             <span className="face-scan-line" />
           </div>
-          <p className="mt-8 text-xs font-bold tracking-[0.2em] text-red-400 uppercase">
+          <p className="mt-8 text-xs font-extrabold tracking-[0.2em] text-[var(--glove)] uppercase">
             Building the rig
           </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight">Finding the face</h1>
-          <p className="text-muted-foreground mt-2 max-w-xs text-sm">
+          <h1 className="brand-display mt-2 text-xl uppercase">Finding the face</h1>
+          <p className="mt-2 max-w-xs text-sm font-medium opacity-60">
             Mapping the eyes, cheeks and jaw for exact hit placement.
           </p>
           <span className="sr-only">Loading face detection</span>

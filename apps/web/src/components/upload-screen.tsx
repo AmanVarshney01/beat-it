@@ -40,34 +40,35 @@ export function UploadScreen({
   return (
     <main
       id="main-content"
-      className="relative isolate flex h-full min-h-0 items-start overflow-x-hidden overflow-y-auto px-5 py-8 text-white sm:px-8 lg:items-center lg:px-12 lg:py-10"
+      className="poster-ground relative isolate flex h-full min-h-0 items-start overflow-x-hidden overflow-y-auto px-5 py-8 sm:px-8 lg:items-center lg:px-12 lg:py-10"
     >
-      <div className="landing-grid pointer-events-none absolute inset-0 -z-20" />
-      <div className="pointer-events-none absolute -top-48 -left-40 -z-10 size-[34rem] rounded-full bg-red-500/10 blur-[120px]" />
-      <div className="pointer-events-none absolute -right-52 -bottom-64 -z-10 size-[38rem] rounded-full bg-amber-200/8 blur-[130px]" />
+      <div className="landing-grid pointer-events-none absolute inset-0 -z-10" />
 
       <section className="mx-auto grid w-full max-w-6xl items-center gap-9 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
-        <div className="text-left">
-          <p className="mb-5 flex items-center gap-2 text-[0.68rem] font-bold tracking-[0.22em] text-red-400 uppercase">
-            <span className="size-1.5 rounded-full bg-red-400 shadow-[0_0_16px_rgba(248,113,113,0.9)]" />
-            Browser-only stress dummy
+        <div className="relative text-left">
+          <p className="mb-5 flex items-center gap-2 text-[0.7rem] font-extrabold tracking-[0.22em] uppercase">
+            <span className="size-2 rounded-full border-2 border-[var(--ink)] bg-[var(--glove)]" />
+            The face-punching booth
           </p>
           <h1 className="brand-display text-[clamp(3rem,7.5vw,5.8rem)] leading-[0.95] text-balance uppercase">
-            <span className="arcade-gradient-text">Beat</span>
+            Beat
             <br />
-            <span className="arcade-gradient-text inline-block -rotate-2">it.</span>
+            <span className="inline-block -rotate-2 text-[var(--glove)]">it.</span>
           </h1>
-          <p className="text-muted-foreground mt-8 max-w-md text-pretty text-lg leading-relaxed">
+          <div
+            className="poster-burst absolute top-0 right-0 max-lg:hidden"
+            aria-hidden="true"
+          >
+            100% local · no uploads
+          </div>
+          <p className="mt-8 max-w-md text-lg leading-relaxed font-medium text-pretty">
             Drop in a face. Pick a hit. Let the dummy take it. Every photo stays
             inside your browser.
           </p>
 
-          <div className="mt-7 flex flex-wrap gap-2 text-xs font-semibold text-white/65">
+          <div className="mt-7 flex flex-wrap gap-2 text-xs">
             {["5 physical attacks", "Exact hit placement", "No sign-up"].map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 backdrop-blur"
-              >
+              <span key={item} className="landing-chip">
                 {item}
               </span>
             ))}
@@ -78,12 +79,12 @@ export function UploadScreen({
               <div
                 key={kind}
                 className="landing-weapon-tile"
-                style={{ transform: `translateY(${index === 1 ? -8 : 0}px)` }}
+                style={{ rotate: `${[-3, 2, -1][index]}deg` }}
               >
                 <img src={weaponImageUrl(kind)} alt="" draggable={false} />
               </div>
             ))}
-            <span className="mb-3 ml-2 text-xs leading-relaxed text-white/40">
+            <span className="mb-3 ml-2 text-xs leading-relaxed font-bold opacity-60">
               punch
               <br />
               splat
@@ -96,12 +97,12 @@ export function UploadScreen({
         <div className="upload-panel">
           <div className="mb-6 flex items-start justify-between gap-6">
             <div>
-              <p className="text-xs font-bold tracking-[0.18em] text-white/40 uppercase">
-                Start a session
+              <p className="text-xs font-extrabold tracking-[0.18em] uppercase opacity-55">
+                Step right up
               </p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight">Choose the face</h2>
+              <h2 className="brand-display mt-1 text-xl uppercase">Load a face</h2>
             </div>
-            <span className="rounded-full border border-emerald-300/15 bg-emerald-300/8 px-2.5 py-1 text-[0.65rem] font-bold tracking-wide text-emerald-200/80 uppercase">
+            <span className="rounded-md border-2 border-[var(--ink)] bg-[var(--poster)] px-2.5 py-1 text-[0.65rem] font-extrabold tracking-wide uppercase -rotate-3">
               Local
             </span>
           </div>
@@ -122,10 +123,12 @@ export function UploadScreen({
             className={`upload-dropzone ${dragging ? "is-dragging" : ""}`}
           >
             <span className="upload-icon-shell">
-              <ImageUp className="size-7" strokeWidth={1.8} />
+              <ImageUp className="size-7" strokeWidth={2.2} />
             </span>
-            <span className="text-lg font-semibold">Drop a face photo</span>
-            <span className="text-sm text-white/45">JPEG, PNG or WebP · max clarity works best</span>
+            <span className="text-lg font-extrabold">Drop a face photo</span>
+            <span className="text-sm font-medium opacity-55">
+              JPEG, PNG or WebP · max clarity works best
+            </span>
           </label>
 
           <input
@@ -156,9 +159,9 @@ export function UploadScreen({
             </button>
           </div>
 
-          <div className="mt-6 flex items-center gap-3 border-t border-white/8 pt-5 text-left">
+          <div className="mt-6 flex items-center gap-3 border-t-2 border-[var(--ink)]/15 pt-5 text-left">
             <span className="privacy-pulse" aria-hidden="true" />
-            <p className="text-xs leading-relaxed text-white/40">
+            <p className="text-xs leading-relaxed font-medium opacity-55">
               Face detection and rendering happen on this device. Nothing is uploaded.
             </p>
           </div>

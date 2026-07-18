@@ -175,7 +175,7 @@ export function GameScreen({
           >
             {stats.hits}
           </span>
-          <span className="pb-0.5 text-[0.64rem] font-bold tracking-[0.18em] text-white/45 uppercase">
+          <span className="pb-0.5 text-[0.64rem] font-extrabold tracking-[0.18em] uppercase opacity-55">
             hits
           </span>
         </div>
@@ -183,8 +183,8 @@ export function GameScreen({
           {[1, 2, 3, 4].map((stage) => (
             <span
               key={stage}
-              className={`h-1 w-6 rounded-full transition-colors duration-300 ${
-                stats.damageStage >= stage ? "bg-red-500" : "bg-white/10"
+              className={`h-1.5 w-6 rounded-full border border-[var(--ink)] transition-colors duration-300 ${
+                stats.damageStage >= stage ? "bg-[var(--glove)]" : "bg-[var(--ink)]/10"
               }`}
             />
           ))}
@@ -196,7 +196,7 @@ export function GameScreen({
         <div
           key={stats.combo}
           aria-hidden="true"
-          className="game-combo-pop arcade-gradient-text pointer-events-none absolute left-1/2 z-20 -translate-x-1/2"
+          className="game-combo-pop pointer-events-none absolute left-1/2 z-20 -translate-x-1/2"
           style={{ fontSize: `${Math.min(6.5, 2 + stats.combo * 0.22)}rem` }}
         >
           {stats.combo}x combo
@@ -261,16 +261,16 @@ export function GameScreen({
           >
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-[0.62rem] font-bold tracking-[0.18em] text-white/35 uppercase">
+                <p className="text-[0.62rem] font-extrabold tracking-[0.18em] uppercase opacity-55">
                   Game feel
                 </p>
-                <h2 className="text-lg font-bold tracking-tight">Settings</h2>
+                <h2 className="brand-display text-base uppercase">Settings</h2>
               </div>
               <button
                 type="button"
                 aria-label="Close settings"
                 onClick={() => setShowSettings(false)}
-                className="flex size-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/60 transition hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-red-400/70 focus-visible:outline-none"
+                className="flex size-8 items-center justify-center rounded-md border-2 border-[var(--ink)] bg-[var(--canvas)] transition hover:bg-[var(--poster)] focus-visible:outline-3 focus-visible:outline-[var(--booth-blue)]"
               >
                 <X className="size-4" />
               </button>
@@ -279,7 +279,7 @@ export function GameScreen({
               {(Object.keys(SETTING_LABELS) as ToggleSetting[]).map((key) => (
                 <label
                   key={key}
-                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/5"
+                  className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--poster)]/40"
                 >
                   {SETTING_LABELS[key]}
                   <input
@@ -290,7 +290,7 @@ export function GameScreen({
                   />
                 </label>
               ))}
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white/5">
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--poster)]/40">
                 Reaction voice
                 <select
                   aria-label="Reaction voice"
@@ -304,7 +304,7 @@ export function GameScreen({
                       gameRef.current?.sounds.previewReactionVoice(reactionVoice);
                     }
                   }}
-                  className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold capitalize outline-none focus:border-red-400/60"
+                  className="rounded-md border-2 border-[var(--ink)] bg-[var(--canvas)] px-2.5 py-1.5 text-xs font-bold capitalize outline-none focus-visible:outline-3 focus-visible:outline-[var(--booth-blue)]"
                 >
                   <option value="off">Off</option>
                   <option value="female">Female</option>
@@ -312,7 +312,7 @@ export function GameScreen({
                 </select>
               </label>
             </div>
-            <p className="px-2 pt-2 text-[0.68rem] leading-relaxed text-white/35">
+            <p className="px-2 pt-2 text-[0.68rem] leading-relaxed font-medium opacity-55">
               Voices stay short and never stack during rapid hits.
             </p>
           </section>
@@ -342,10 +342,10 @@ export function GameScreen({
       {/* weapon picker */}
       <div className="game-weapon-dock absolute z-30">
         <div className="mb-1.5 flex items-center justify-between px-1">
-          <span className="text-[0.62rem] font-bold tracking-[0.2em] text-white/35 uppercase">
+          <span className="text-[0.62rem] font-extrabold tracking-[0.2em] uppercase opacity-50">
             Selected
           </span>
-          <span className="text-[0.68rem] font-bold tracking-wide text-white/75 uppercase">
+          <span className="brand-display text-[0.68rem] tracking-wide uppercase">
             {selectedWeapon.label}
           </span>
         </div>

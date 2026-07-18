@@ -1,5 +1,20 @@
 @import "@fontsource/bungee";
+@import "@fontsource-variable/archivo";
 @import "@beat-it/ui/globals.css";
+
+/*
+ * Beat It design system — carnival midway booth / vintage boxing poster.
+ * Flat fills only: no gradients, no blur, no glow. Ink borders, hard offset
+ * shadows, and a couple of degrees of tilt do all the work.
+ */
+
+:root {
+  --poster: #ffce1f;
+  --ink: #16120e;
+  --glove: #e23428;
+  --canvas: #fff8ec;
+  --booth-blue: #1f5fd0;
+}
 
 @layer base {
   html {
@@ -8,223 +23,138 @@
 
   body {
     min-width: 20rem;
+    font-family: "Archivo Variable", "Archivo", "Helvetica Neue", sans-serif;
   }
 
   ::selection {
-    background: rgb(239 68 68 / 35%);
+    background: var(--ink);
+    color: var(--poster);
   }
 }
 
 .brand-display {
-  font-family: "Bungee", "Arial Black", "Avenir Next Condensed", sans-serif;
+  font-family: "Bungee", "Arial Black", sans-serif;
   font-weight: 400;
 }
 
-/* yellow → orange → red arcade ramp with a hard shadow */
-.arcade-gradient-text {
-  background: linear-gradient(180deg, #ffe14d 0%, #ffb020 38%, #ef4444 78%, #c1271b 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 4px 0 rgb(0 0 0 / 55%)) drop-shadow(0 10px 24px rgb(239 68 68 / 25%));
+/* ── poster ground (upload / detecting / crop screens) ─────────────────── */
+
+.poster-ground {
+  background: var(--poster);
+  color: var(--ink);
 }
 
-.arcade-num {
-  font-family: "Bungee", "Arial Black", sans-serif;
-  color: #ffd94d;
-  text-shadow:
-    0 2px 0 rgb(0 0 0 / 55%),
-    0 0 22px rgb(255 176 32 / 30%);
+/* flat halftone dots, hard-stop — pattern, not a fade */
+.landing-grid {
+  background-image: radial-gradient(circle, rgb(22 18 14 / 8%) 1.5px, transparent 1.5px);
+  background-size: 26px 26px;
 }
 
-.game-attack-button {
-  right: max(1.25rem, env(safe-area-inset-right));
-  bottom: max(1.25rem, env(safe-area-inset-bottom));
-  cursor: pointer;
-  border: 3px solid #7f1d1d;
-  border-radius: 999px;
-  padding: 1.15rem 2.1rem;
-  background:
-    linear-gradient(180deg, #f87171, #ef4444 45%, #dc2626);
-  color: white;
-  font-family: "Bungee", "Arial Black", sans-serif;
-  font-size: 1.5rem;
-  letter-spacing: 0.04em;
-  text-shadow: 0 2px 0 rgb(0 0 0 / 40%);
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 35%),
-    0 7px 0 #7f1d1d,
-    0 18px 40px rgb(239 68 68 / 35%);
-  outline: none;
-  transition:
-    transform 90ms ease,
-    box-shadow 90ms ease,
-    filter 150ms ease;
-}
-
-.game-attack-button:hover {
-  filter: brightness(1.07);
-}
-
-.game-attack-button:active {
-  transform: translateY(5px);
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 25%),
-    0 2px 0 #7f1d1d,
-    0 8px 18px rgb(239 68 68 / 25%);
-}
-
-.game-attack-button:focus-visible {
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 35%),
-    0 7px 0 #7f1d1d,
-    0 0 0 3px rgb(255 217 77 / 65%);
-}
-
-.game-combo-pop {
-  top: 14%;
-  rotate: -5deg;
-  font-family: "Bungee", "Arial Black", sans-serif;
-  white-space: nowrap;
-  animation: combo-pop 260ms cubic-bezier(0.2, 1.6, 0.4, 1);
-}
-
-@keyframes combo-pop {
-  from {
-    opacity: 0;
-    scale: 1.7;
-  }
+.hazard-tape {
+  height: 0.75rem;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--ink) 0 14px,
+    var(--poster) 14px 28px
+  );
+  border-bottom: 3px solid var(--ink);
 }
 
 .brand-mark {
   display: grid;
-  width: 1.8rem;
-  height: 1.8rem;
+  width: 2rem;
+  height: 2rem;
   place-items: center;
-  border: 1px solid rgb(248 113 113 / 34%);
-  border-radius: 0.5rem;
-  background:
-    linear-gradient(145deg, rgb(248 113 113 / 28%), rgb(239 68 68 / 8%)),
-    #151519;
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 11%),
-    0 8px 24px rgb(0 0 0 / 22%);
-  color: #fecaca;
-  font-family: "Arial Black", "Avenir Next Condensed", sans-serif;
-  font-size: 0.62rem;
-  letter-spacing: -0.06em;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease;
+  border: 3px solid var(--ink);
+  border-radius: 0.45rem;
+  background: var(--glove);
+  box-shadow: 2px 2px 0 var(--ink);
+  color: var(--canvas);
+  font-family: "Bungee", sans-serif;
+  font-size: 0.6rem;
+  transition: transform 120ms ease;
 }
 
 .group:hover .brand-mark {
-  transform: rotate(-4deg) scale(1.04);
-  border-color: rgb(248 113 113 / 62%);
+  transform: rotate(-5deg);
 }
 
-.landing-grid {
-  background-color: #0d0d10;
-  background-image:
-    linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px),
-    radial-gradient(circle at 74% 46%, rgb(239 68 68 / 12%), transparent 34%);
-  background-size:
-    42px 42px,
-    42px 42px,
-    auto;
-  mask-image: linear-gradient(to bottom, transparent, black 14%, black 84%, transparent);
-}
-
-.landing-weapon-tile {
+/* the signature: carnival price-burst sticker */
+.poster-burst {
   display: grid;
-  width: 4.25rem;
-  height: 4.25rem;
+  width: 8.5rem;
+  height: 8.5rem;
   place-items: center;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 1rem;
-  background:
-    linear-gradient(145deg, rgb(255 255 255 / 8%), transparent),
-    rgb(255 255 255 / 3%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 9%),
-    0 18px 34px rgb(0 0 0 / 24%);
+  padding: 1.1rem;
+  background: var(--glove);
+  clip-path: polygon(
+    50% 0%, 61% 9%, 75% 4%, 80% 17%, 94% 17%, 92% 31%, 100% 39%, 91% 50%,
+    100% 61%, 92% 69%, 94% 83%, 80% 83%, 75% 96%, 61% 91%, 50% 100%, 39% 91%,
+    25% 96%, 20% 83%, 6% 83%, 8% 69%, 0% 61%, 9% 50%, 0% 39%, 8% 31%, 6% 17%,
+    20% 17%, 25% 4%, 39% 9%
+  );
+  color: var(--canvas);
+  font-family: "Bungee", sans-serif;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+  rotate: 8deg;
+  animation: burst-wobble 5s ease-in-out infinite;
 }
 
-.landing-weapon-tile img {
-  width: 3.15rem;
-  height: 3.15rem;
-  object-fit: contain;
-  filter: drop-shadow(0 9px 9px rgb(0 0 0 / 35%));
+@keyframes burst-wobble {
+  50% {
+    rotate: 3deg;
+  }
 }
+
+/* ── cards & controls (flat, bordered, hard-shadowed) ──────────────────── */
 
 .upload-panel {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 1.75rem;
+  border: 3px solid var(--ink);
+  border-radius: 0.9rem;
   padding: clamp(1.35rem, 4vw, 2rem);
-  background:
-    linear-gradient(155deg, rgb(255 255 255 / 7%), transparent 45%),
-    rgb(20 20 24 / 86%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 9%),
-    0 32px 90px rgb(0 0 0 / 36%);
-  color: white;
-  backdrop-filter: blur(22px);
-}
-
-.upload-panel::after {
-  position: absolute;
-  right: -5rem;
-  bottom: -7rem;
-  width: 16rem;
-  height: 16rem;
-  border-radius: 999px;
-  background: rgb(239 68 68 / 9%);
-  content: "";
-  filter: blur(55px);
-  pointer-events: none;
+  background: var(--canvas);
+  box-shadow: 8px 8px 0 var(--ink);
+  color: var(--ink);
+  rotate: 0.6deg;
 }
 
 .upload-dropzone {
   position: relative;
   z-index: 1;
   display: flex;
-  min-height: 13rem;
+  min-height: 12rem;
   cursor: pointer;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
-  border: 1px dashed rgb(255 255 255 / 18%);
-  border-radius: 1.25rem;
-  background: rgb(255 255 255 / 2.5%);
+  gap: 0.55rem;
+  border: 3px dashed var(--ink);
+  border-radius: 0.7rem;
+  background: transparent;
   text-align: center;
-  transition:
-    border-color 180ms ease,
-    background 180ms ease,
-    transform 180ms ease;
+  transition: background 120ms ease, transform 120ms ease;
 }
 
 .upload-dropzone:hover,
 .upload-dropzone.is-dragging {
-  border-color: rgb(248 113 113 / 66%);
-  background: rgb(239 68 68 / 7%);
-  transform: translateY(-2px);
+  background: rgb(226 52 40 / 9%);
+  transform: translate(-2px, -2px);
 }
 
 .upload-icon-shell {
   display: grid;
-  width: 3.4rem;
-  height: 3.4rem;
+  width: 3.2rem;
+  height: 3.2rem;
   margin-bottom: 0.3rem;
   place-items: center;
-  border: 1px solid rgb(248 113 113 / 24%);
-  border-radius: 1rem;
-  background: rgb(239 68 68 / 11%);
-  color: #fca5a5;
-  box-shadow: inset 0 1px rgb(255 255 255 / 8%);
+  border: 3px solid var(--ink);
+  border-radius: 0.6rem;
+  background: var(--poster);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  rotate: -4deg;
 }
 
 .landing-primary-action,
@@ -232,177 +162,171 @@
   position: relative;
   z-index: 1;
   display: inline-flex;
-  min-height: 2.85rem;
+  min-height: 3rem;
   cursor: pointer;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 0.85rem;
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 750;
+  border: 3px solid var(--ink);
+  border-radius: 0.65rem;
+  padding: 0.7rem 1.15rem;
+  font-family: "Bungee", sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   outline: none;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease,
-    box-shadow 160ms ease;
+  transition: transform 100ms ease, box-shadow 100ms ease;
 }
 
 .landing-primary-action {
-  border: 2px solid #991b1b;
-  background: linear-gradient(180deg, #f87171, #ef4444 55%, #dc2626);
-  color: white;
-  font-family: "Bungee", "Arial Black", sans-serif;
-  font-weight: 400;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 30%),
-    0 4px 0 #991b1b,
-    0 14px 28px rgb(239 68 68 / 25%);
+  background: var(--glove);
+  color: var(--canvas);
+  box-shadow: 5px 5px 0 var(--ink);
 }
 
 .landing-secondary-action {
-  border: 1px solid rgb(255 255 255 / 10%);
-  background: rgb(255 255 255 / 5%);
-  color: rgb(255 255 255 / 78%);
+  background: var(--canvas);
+  color: var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
 }
 
 .landing-primary-action:hover,
 .landing-secondary-action:hover {
-  transform: translateY(-1px);
-}
-
-.landing-primary-action:hover {
-  filter: brightness(1.06);
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 33%),
-    0 4px 0 #991b1b,
-    0 17px 34px rgb(239 68 68 / 32%);
-}
-
-.landing-primary-action:active {
-  transform: translateY(3px);
-  box-shadow:
-    inset 0 2px 0 rgb(255 255 255 / 22%),
-    0 1px 0 #991b1b,
-    0 8px 18px rgb(239 68 68 / 22%);
-}
-
-.landing-secondary-action {
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.landing-secondary-action:hover {
-  border-color: rgb(255 255 255 / 17%);
-  background: rgb(255 255 255 / 8%);
-  color: white;
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--ink);
 }
 
 .landing-primary-action:active,
 .landing-secondary-action:active {
-  transform: translateY(1px) scale(0.99);
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--ink);
 }
 
 .landing-primary-action:focus-visible,
-.landing-secondary-action:focus-visible,
-.upload-dropzone:has(+ input:focus-visible) {
-  box-shadow: 0 0 0 3px rgb(248 113 113 / 42%);
+.landing-secondary-action:focus-visible {
+  outline: 3px solid var(--booth-blue);
+  outline-offset: 2px;
+}
+
+.landing-chip {
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  background: var(--canvas);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.landing-weapon-tile {
+  display: grid;
+  width: 4.25rem;
+  height: 4.25rem;
+  place-items: center;
+  border: 3px solid var(--ink);
+  border-radius: 0.8rem;
+  background: var(--canvas);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.landing-weapon-tile img {
+  width: 3.1rem;
+  height: 3.1rem;
+  object-fit: contain;
 }
 
 .privacy-pulse {
-  position: relative;
-  z-index: 1;
-  width: 0.45rem;
-  height: 0.45rem;
+  width: 0.55rem;
+  height: 0.55rem;
   flex: none;
+  border: 2px solid var(--ink);
   border-radius: 999px;
-  background: #6ee7b7;
-  box-shadow: 0 0 12px rgb(110 231 183 / 60%);
+  background: var(--glove);
 }
+
+/* ── detecting screen ──────────────────────────────────────────────────── */
 
 .face-scan {
   position: relative;
   width: 8rem;
   height: 9.5rem;
+  border: 3px solid var(--ink);
   border-radius: 46% 46% 42% 42%;
-  background: radial-gradient(circle at 50% 45%, rgb(239 68 68 / 13%), transparent 68%);
+  background: var(--canvas);
+  box-shadow: 6px 6px 0 var(--ink);
 }
 
 .face-scan-ring,
 .face-scan-ring-inner {
   position: absolute;
-  inset: 0;
-  border: 1px solid rgb(248 113 113 / 42%);
+  inset: 0.9rem;
+  border: 2px dashed var(--ink);
   border-radius: inherit;
+  opacity: 0.35;
 }
 
 .face-scan-ring-inner {
-  inset: 1rem;
-  border-color: rgb(255 255 255 / 12%);
+  inset: 1.8rem;
 }
 
 .face-scan-line {
   position: absolute;
   right: 0.7rem;
   left: 0.7rem;
-  height: 1px;
+  height: 4px;
   top: 18%;
-  background: #f87171;
-  box-shadow:
-    0 0 12px #ef4444,
-    0 0 28px rgb(239 68 68 / 72%);
+  border-radius: 2px;
+  background: var(--glove);
   animation: face-scan 1.6s ease-in-out infinite alternate;
 }
+
+/* ── game HUD (booth furniture in the dark arcade room) ────────────────── */
 
 .game-stat-card {
   top: max(1rem, env(safe-area-inset-top));
   left: max(1rem, env(safe-area-inset-left));
-  min-width: 9rem;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 1rem;
-  padding: 0.85rem 1rem;
-  background: rgb(17 17 20 / 68%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 7%),
-    0 16px 38px rgb(0 0 0 / 18%);
-  color: white;
-  backdrop-filter: blur(14px);
+  min-width: 8.5rem;
+  border: 3px solid var(--ink);
+  border-radius: 0.8rem;
+  padding: 0.8rem 1rem;
+  background: var(--canvas);
+  box-shadow: 5px 5px 0 var(--ink);
+  color: var(--ink);
+  rotate: -1.2deg;
+}
+
+.arcade-num {
+  font-family: "Bungee", "Arial Black", sans-serif;
+  color: var(--glove);
 }
 
 .game-control-rail {
   top: max(1rem, env(safe-area-inset-top));
   right: max(1rem, env(safe-area-inset-right));
   padding: 0.3rem;
-  border: 1px solid rgb(255 255 255 / 9%);
-  border-radius: 0.95rem;
-  background: rgb(17 17 20 / 68%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 7%),
-    0 16px 38px rgb(0 0 0 / 18%);
-  backdrop-filter: blur(14px);
+  border: 3px solid var(--ink);
+  border-radius: 0.8rem;
+  background: var(--canvas);
+  box-shadow: 5px 5px 0 var(--ink);
 }
 
 .game-control-button {
   height: 2.45rem;
   min-width: 2.45rem;
   border-color: transparent !important;
+  border-radius: 0.5rem !important;
   background: transparent !important;
-  color: rgb(255 255 255 / 70%) !important;
+  color: var(--ink) !important;
   box-shadow: none !important;
+  font-weight: 700;
 }
 
 .game-control-button:hover,
 .game-control-button[aria-expanded="true"] {
-  background: rgb(255 255 255 / 8%) !important;
-  color: white !important;
+  background: var(--poster) !important;
 }
 
 .game-control-button:focus-visible {
-  outline: 2px solid rgb(248 113 113 / 75%) !important;
+  outline: 3px solid var(--booth-blue) !important;
   outline-offset: 1px;
 }
 
@@ -412,76 +336,64 @@
   top: 4.65rem;
   right: max(1rem, env(safe-area-inset-right));
   width: min(20rem, calc(100vw - 2rem));
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 1.2rem;
+  border: 3px solid var(--ink);
+  border-radius: 0.9rem;
   padding: 1rem;
-  background:
-    linear-gradient(145deg, rgb(255 255 255 / 6%), transparent),
-    rgb(20 20 24 / 94%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 9%),
-    0 26px 70px rgb(0 0 0 / 44%);
-  color: white;
-  color-scheme: dark;
-  backdrop-filter: blur(24px);
-  animation: settings-in 160ms ease-out;
+  background: var(--canvas);
+  box-shadow: 7px 7px 0 var(--ink);
+  color: var(--ink);
+  color-scheme: light;
+  animation: settings-in 140ms ease-out;
 }
 
 .game-switch {
-  width: 2.35rem;
-  height: 1.3rem;
+  width: 1.35rem;
+  height: 1.35rem;
   flex: none;
   cursor: pointer;
   appearance: none;
-  border: 1px solid rgb(255 255 255 / 12%);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 0.65rem 50%, white 0.32rem, transparent 0.34rem),
-    rgb(255 255 255 / 10%);
+  border: 3px solid var(--ink);
+  border-radius: 0.3rem;
+  background: var(--canvas);
   outline: none;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
+  transition: background 100ms ease;
 }
 
 .game-switch:checked {
-  border-color: rgb(248 113 113 / 66%);
-  background:
-    radial-gradient(circle at calc(100% - 0.65rem) 50%, white 0.32rem, transparent 0.34rem),
-    #ef4444;
+  background: var(--glove);
+  box-shadow: inset 0 0 0 2px var(--canvas);
 }
 
 .game-switch:focus-visible {
-  box-shadow: 0 0 0 3px rgb(248 113 113 / 35%);
+  outline: 3px solid var(--booth-blue);
+  outline-offset: 1px;
 }
 
 .game-hint {
-  bottom: 8.9rem;
+  bottom: 9rem;
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 3px solid var(--ink);
   border-radius: 999px;
-  padding: 0.5rem 0.8rem;
-  background: rgb(17 17 20 / 63%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 7%),
-    0 12px 26px rgb(0 0 0 / 17%);
-  color: rgb(255 255 255 / 67%);
+  padding: 0.5rem 0.9rem;
+  background: var(--poster);
+  box-shadow: 4px 4px 0 var(--ink);
+  color: var(--ink);
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
-  backdrop-filter: blur(12px);
+  rotate: -1deg;
 }
 
 .game-hint-dot {
-  width: 0.38rem;
-  height: 0.38rem;
+  width: 0.4rem;
+  height: 0.4rem;
   border-radius: 999px;
-  background: #f87171;
-  box-shadow: 0 0 10px rgb(248 113 113 / 80%);
+  background: var(--glove);
+  border: 1.5px solid var(--ink);
   animation: hint-breathe 1.4s ease-in-out infinite;
 }
 
@@ -489,16 +401,12 @@
   left: 50%;
   bottom: max(1rem, env(safe-area-inset-bottom));
   translate: -50% 0;
-  border: 1px solid rgb(255 255 255 / 10%);
-  border-radius: 1.2rem;
-  padding: 0.75rem;
-  background:
-    linear-gradient(160deg, rgb(255 255 255 / 7%), transparent),
-    rgb(17 17 20 / 72%);
-  box-shadow:
-    inset 0 1px rgb(255 255 255 / 8%),
-    0 24px 60px rgb(0 0 0 / 30%);
-  backdrop-filter: blur(18px);
+  border: 3px solid var(--ink);
+  border-radius: 0.9rem;
+  padding: 0.7rem;
+  background: var(--canvas);
+  box-shadow: 6px 6px 0 var(--ink);
+  color: var(--ink);
 }
 
 .game-weapon-button {
@@ -508,42 +416,32 @@
   height: 4rem;
   cursor: pointer;
   place-items: center;
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 8%);
-  border-radius: 0.9rem;
-  background: rgb(255 255 255 / 3%);
+  border: 3px solid var(--ink);
+  border-radius: 0.7rem;
+  background: var(--canvas);
   outline: none;
-  transition:
-    transform 150ms ease,
-    border-color 150ms ease,
-    background 150ms ease,
-    box-shadow 150ms ease;
+  transition: transform 100ms ease, background 100ms ease, box-shadow 100ms ease;
 }
 
 .game-weapon-button:hover {
-  transform: translateY(-2px);
-  border-color: rgb(255 255 255 / 15%);
-  background: rgb(255 255 255 / 7%);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
 .game-weapon-button:active {
-  transform: translateY(1px) scale(0.96);
+  transform: translate(1px, 1px);
+  box-shadow: none;
 }
 
 .game-weapon-button:focus-visible {
-  box-shadow: 0 0 0 3px rgb(248 113 113 / 38%);
+  outline: 3px solid var(--booth-blue);
+  outline-offset: 1px;
 }
 
 .game-weapon-button.is-selected {
   transform: translateY(-4px) rotate(-2deg);
-  border-color: rgb(248 113 113 / 85%);
-  background:
-    radial-gradient(circle at 50% 100%, rgb(239 68 68 / 30%), transparent 65%),
-    rgb(239 68 68 / 10%);
-  box-shadow:
-    inset 0 0 0 1px rgb(248 113 113 / 22%),
-    0 5px 0 rgb(127 29 29 / 85%),
-    0 14px 30px rgb(239 68 68 / 30%);
+  background: var(--poster);
+  box-shadow: 4px 4px 0 var(--ink);
 }
 
 .game-weapon-button.is-selected:hover {
@@ -552,32 +450,82 @@
 
 .game-weapon-shortcut {
   position: absolute;
-  top: 0.28rem;
-  left: 0.28rem;
+  top: 0.22rem;
+  left: 0.22rem;
   display: grid;
   min-width: 1rem;
   height: 1rem;
   place-items: center;
-  border-radius: 0.3rem;
-  background: rgb(0 0 0 / 45%);
-  color: rgb(255 217 77 / 85%);
-  font-family: "Bungee", "Arial Black", sans-serif;
-  font-size: 0.55rem;
+  border: 2px solid var(--ink);
+  border-radius: 0.28rem;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: "Bungee", sans-serif;
+  font-size: 0.5rem;
+}
+
+.game-attack-button {
+  right: max(1.25rem, env(safe-area-inset-right));
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  cursor: pointer;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  padding: 1.15rem 2.1rem;
+  background: var(--glove);
+  color: var(--canvas);
+  font-family: "Bungee", sans-serif;
+  font-size: 1.45rem;
+  letter-spacing: 0.04em;
+  box-shadow: 0 7px 0 var(--ink);
+  outline: none;
+  rotate: 2deg;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.game-attack-button:active {
+  transform: translateY(6px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.game-attack-button:focus-visible {
+  outline: 3px solid var(--poster);
+  outline-offset: 3px;
+}
+
+.game-combo-pop {
+  top: 13%;
+  rotate: -4deg;
+  color: var(--poster);
+  font-family: "Bungee", sans-serif;
+  white-space: nowrap;
+  -webkit-text-stroke: 2.5px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 5px 5px 0 var(--ink);
+  animation: combo-pop 240ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+/* ── keyframes & responsive ────────────────────────────────────────────── */
+
+@keyframes combo-pop {
+  from {
+    opacity: 0;
+    scale: 1.7;
+  }
 }
 
 @keyframes face-scan {
   from {
-    top: 18%;
+    top: 14%;
   }
   to {
-    top: 78%;
+    top: 80%;
   }
 }
 
 @keyframes hint-breathe {
   50% {
-    opacity: 0.48;
-    transform: scale(0.72);
+    opacity: 0.45;
+    transform: scale(0.75);
   }
 }
 
@@ -593,6 +541,7 @@
     right: auto;
     left: max(1rem, env(safe-area-inset-left));
     translate: none;
+    rotate: 0.8deg;
   }
 }
 
@@ -600,14 +549,6 @@
   .game-stat-card {
     min-width: 6.8rem;
     padding: 0.65rem 0.75rem;
-  }
-
-  .game-stat-card .brand-display {
-    font-size: 1.9rem;
-  }
-
-  .game-stat-card > div:nth-child(2) span {
-    width: 1.05rem;
   }
 
   .game-control-rail {
@@ -628,7 +569,6 @@
     width: auto;
     max-height: min(34rem, calc(100dvh - 5rem));
     overflow-y: auto;
-    border-radius: 1.35rem;
     animation-name: settings-up;
   }
 
@@ -643,8 +583,7 @@
   .game-weapon-dock {
     bottom: max(0.7rem, env(safe-area-inset-bottom));
     width: calc(100% - 1.4rem);
-    border-radius: 1.1rem;
-    padding: 0.6rem;
+    padding: 0.55rem;
   }
 
   .game-weapon-dock > div:last-child {
@@ -661,6 +600,12 @@
     width: 2rem;
     height: 2rem;
   }
+
+  .poster-burst {
+    width: 6.5rem;
+    height: 6.5rem;
+    font-size: 0.56rem;
+  }
 }
 
 @keyframes settings-up {
@@ -672,13 +617,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .face-scan-line,
-  .game-hint-dot {
+  .game-hint-dot,
+  .poster-burst {
     animation: none;
   }
 
   .landing-primary-action,
   .landing-secondary-action,
-  .landing-weapon-tile,
   .game-weapon-button,
   .brand-mark {
     transition-duration: 0.01ms;
