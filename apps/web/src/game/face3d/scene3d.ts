@@ -18,6 +18,10 @@ const FACE_OVAL = [
   400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21,
   54, 103, 67, 109,
 ] as const;
+const INNER_MOUTH = [
+  78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82,
+  81, 80, 191,
+] as const;
 const DEPTH_SCALE = 1.45;
 const SPRING_K = 160;
 const SPRING_C = 13;
@@ -59,7 +63,6 @@ export class Scene3D {
 
   private headGroup = new THREE.Group();
   private faceMesh: THREE.Mesh;
-  private faceUnderlay: THREE.Mesh;
   private headShell: THREE.Mesh;
   private hairCap: THREE.Mesh;
   private capAccessory: THREE.Group;
@@ -261,7 +264,7 @@ export class Scene3D {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(this.rest.slice(), 3));
     geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-    geometry.setIndex([...TRIANGULATION]);
+    geometry.setIndex([...TRIANGULATION, ...triangulateInnerMouth(this.rest)]);
     geometry.computeVertexNormals();
 
     this.texture = new THREE.CanvasTexture(face);
@@ -297,18 +300,6 @@ export class Scene3D {
     this.headShell.position.set(0, 0.005, -0.27);
     this.headShell.castShadow = true;
     this.headShell.receiveShadow = true;
-
-    this.faceUnderlay = new THREE.Mesh(
-      new THREE.SphereGeometry(0.34, 36, 24),
-      new THREE.MeshStandardMaterial({
-        color: skinColor,
-        roughness: 0.74,
-        envMapIntensity: 0.25,
-      }),
-    );
-    this.faceUnderlay.scale.set(0.87, 1, 0.62);
-    this.faceUnderlay.position.z = -0.22;
-    this.faceUnderlay.castShadow = true;
 
     this.hairCap = new THREE.Mesh(
       new THREE.SphereGeometry(
@@ -429,7 +420,6 @@ export class Scene3D {
       this.headShell,
       this.hairCap,
       this.capAccessory,
-      this.faceUnderlay,
       this.edgeSkirt,
       this.faceMesh,
     );
@@ -950,7 +940,6 @@ export class Scene3D {
     this.reset();
     this.faceMesh.geometry.dispose();
     (this.faceMesh.material as THREE.Material).dispose();
-    disposeObject(this.faceUnderlay);
     disposeObject(this.headShell);
     disposeObject(this.hairCap);
     disposeObject(this.edgeSkirt);
@@ -987,6 +976,31 @@ export class Scene3D {
       pooledProjectiles,
     };
   }
+}
+
+/**
+ * MediaPipe leaves the inner-lip contour open. That hole erases source-photo
+ * details such as visible teeth and exposes proxy geometry behind the face.
+ * Close it with the existing landmark positions and UVs so the photographed
+ * mouth stays continuous and follows the same deformation as the face.
+ */
+function triangulateInnerMouth(rest: Float32Array): number[] {
+  if (INNER_MOUTH.some((index) => index * 3 + 2 >= rest.length)) return [];
+
+  const contour = INNER_MOUTH.map(
+    (index) =>
+      new THREE.Vector2(rest[index * 3] ?? 0, rest[index * 3 + 1] ?? 0),
+  );
+  const triangles = THREE.ShapeUtils.triangulateShape(contour, []);
+  const indices: number[] = [];
+  for (const triangle of triangles) {
+    indices.push(
+      INNER_MOUTH[triangle[0]]!,
+      INNER_MOUTH[triangle[1]]!,
+      INNER_MOUTH[triangle[2]]!,
+    );
+  }
+  return indices;
 }
 
 function buildEdgeSkirtGeometry(rest: Float32Array): THREE.BufferGeometry {
