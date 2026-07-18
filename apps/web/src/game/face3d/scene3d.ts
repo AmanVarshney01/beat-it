@@ -357,7 +357,7 @@ export class Scene3D {
     const authoredCap = instantiateCap();
     this.capAccessory = authoredCap.children.length > 0 ? authoredCap : buildProceduralCap();
     this.capAccessory.name = "player_cap";
-    this.capAccessory.position.set(0, 0.21, 0.05);
+    this.capAccessory.position.set(0, 0.11, 0.06);
     // pitched forward so the near-horizontal bill reads from the head-on camera
     this.capAccessory.rotation.x = 0.26;
     this.capAccessory.rotation.z = -0.045;
