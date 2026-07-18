@@ -357,7 +357,7 @@ export class PunchGame {
     const cosA = Math.cos(renderAngle);
     const sinA = Math.sin(renderAngle);
     const dx = fist.localTarget.x * this.headRadius * 0.88;
-    const dy = fist.localTarget.y * this.headRadius * 1.08;
+    const dy = fist.localTarget.y * this.headRadius * 1.29;
     fist.to.x = this.head.position.x + dx * cosA - dy * sinA;
     fist.to.y = this.head.position.y + dx * sinA + dy * cosA;
   }
@@ -673,7 +673,7 @@ export class PunchGame {
       this.head.position.y + this.headBob(),
       this.head.angle * 0.6,
       this.headRadius * 0.88,
-      this.headRadius * 1.08,
+      this.headRadius * 1.29,
       this.squash,
       this.squashAngle,
     );
@@ -716,7 +716,7 @@ export class PunchGame {
   private drawDamageOverlay(ctx: CanvasRenderingContext2D) {
     const r = this.headRadius;
     const pos = this.head.position;
-    const ry = r * 1.08;
+    const ry = r * 1.29;
     if (this.settings.dizzyStars && this.damageStage >= 4) {
       ctx.save();
       for (let i = 0; i < 3; i++) {

@@ -342,10 +342,9 @@ export class Scene3D {
         envMapIntensity: 0.18,
       }),
     );
-    // tall enough that the crown rises above the face-crop's flat top edge —
-    // without this the bare head reads as a cardboard cutout
-    this.hairCap.scale.set(0.98, 1.18, 0.8);
-    this.hairCap.position.set(0, 0.04, -0.28);
+    // stays behind the photo — the taller crop keeps the real hair in frame
+    this.hairCap.scale.set(0.94, 0.98, 0.8);
+    this.hairCap.position.set(0, 0.02, -0.29);
     this.hairCap.castShadow = true;
     this.hairCap.receiveShadow = true;
 
@@ -380,8 +379,8 @@ export class Scene3D {
     // lands on every head, not just the demo face (offset calibrated there)
     const foreheadLm = landmarks[LM_FOREHEAD];
     const hairlineY = foreheadLm ? -(foreheadLm.y - 0.5) : 0.44;
-    this.capAccessory.position.set(0, hairlineY - 0.35, 0.16);
-    this.capAccessory.scale.setScalar(1.16);
+    this.capAccessory.position.set(0, hairlineY - 0.2, 0.16);
+    this.capAccessory.scale.set(1.16, 0.97, 1.16); // y compensates the taller head scale
     // pitched forward so the near-horizontal bill reads from the head-on camera
     this.capAccessory.rotation.x = 0.26;
     this.capAccessory.visible = false;
