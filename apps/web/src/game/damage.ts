@@ -4,8 +4,7 @@
  * the same canvas. Marks are located at the exact impact point; repaints
  * happen per hit (bounded by mark caps), never per frame.
  *
- * Tone line: bruising, bounded surface blood, and food splats only — no cuts,
- * open wounds, burns, or gore.
+ * Tone line: bruising and food splats only — no blood, cuts, burns or gore.
  */
 
 interface BruiseMark {
@@ -26,18 +25,8 @@ interface SplatMark {
   scale: number;
 }
 
-interface BloodMark {
-  x: number;
-  y: number;
-  r: number;
-  angle: number;
-  seed: number;
-  intensity: number;
-}
-
 const MAX_BRUISES = 20;
 const MAX_SPLATS = 12;
-const MAX_BLOOD_MARKS = 18;
 
 export class DamagePainter {
   /** The canvas the game should render/texture from. Same size as the base. */
@@ -46,7 +35,6 @@ export class DamagePainter {
   private base: HTMLCanvasElement;
   private bruises: BruiseMark[] = [];
   private splats: SplatMark[] = [];
-  private bloodMarks: BloodMark[] = [];
   private seedCounter = 1;
 
   constructor(base: HTMLCanvasElement) {
@@ -115,26 +103,9 @@ export class DamagePainter {
     return true;
   }
 
-  /** Small directional surface spatter registered to the resolved face UV. */
-  blood(u: number, v: number, strength: number, angle: number): boolean {
-    if (this.bloodMarks.length >= MAX_BLOOD_MARKS) return false;
-    const mark = {
-      x: u * this.canvas.width,
-      y: v * this.canvas.height,
-      r: this.canvas.width * (0.032 + 0.012 * Math.min(1.6, strength)),
-      angle,
-      seed: this.seedCounter++,
-      intensity: Math.min(1.25, 0.68 + strength * 0.24),
-    };
-    this.bloodMarks.push(mark);
-    this.paintBlood(mark);
-    return true;
-  }
-
   clear() {
     this.bruises = [];
     this.splats = [];
-    this.bloodMarks = [];
     this.repaint();
   }
 
@@ -149,7 +120,6 @@ export class DamagePainter {
     ctx.drawImage(this.base, 0, 0);
     ctx.restore();
     for (const b of this.bruises) this.paintBruise(b);
-    for (const blood of this.bloodMarks) this.paintBlood(blood);
     for (const s of this.splats) this.paintSplat(s);
   }
 
@@ -199,43 +169,6 @@ export class DamagePainter {
       ctx.globalAlpha = (0.08 + rand() * 0.1) * intensity;
       ctx.fillStyle = `${HUES[Math.floor(rand() * HUES.length)]}1)`;
       fillEllipse(ctx, Math.cos(a) * dist, Math.sin(a) * dist * 0.8, mr * (0.8 + rand() * 0.6), mr);
-    }
-    ctx.restore();
-  }
-
-  private paintBlood({ x, y, r, angle, seed, intensity }: BloodMark) {
-    const { ctx } = this;
-    const rand = mulberry32(seed * 65537);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.globalCompositeOperation = "multiply";
-    ctx.filter = `blur(${Math.max(0.35, r * 0.018)}px)`;
-
-    ctx.globalAlpha = Math.min(0.88, 0.62 * intensity);
-    ctx.fillStyle = "rgb(142, 8, 24)";
-    fillOrganicBlob(ctx, 0, 0, r * 0.56, r * 0.46, rand);
-
-    ctx.globalAlpha = Math.min(0.78, 0.52 * intensity);
-    ctx.fillStyle = "rgb(91, 3, 18)";
-    fillEllipse(ctx, -r * 0.06, r * 0.03, r * 0.24, r * 0.2);
-
-    // Satellite droplets stay tight to the exact contact instead of covering
-    // the whole face. Larger ones sit nearer the core, tiny ones travel out.
-    const droplets = 6 + Math.floor(rand() * 4);
-    for (let i = 0; i < droplets; i++) {
-      const spread = (rand() - 0.5) * 1.5;
-      const distance = r * (0.65 + rand() * 1.65);
-      const size = r * (0.055 + (1 - distance / (r * 2.4)) * 0.13 + rand() * 0.045);
-      ctx.globalAlpha = (0.45 + rand() * 0.35) * intensity;
-      ctx.fillStyle = rand() > 0.72 ? "rgb(96, 3, 17)" : "rgb(153, 8, 27)";
-      fillEllipse(
-        ctx,
-        Math.cos(spread) * distance,
-        Math.sin(spread) * distance,
-        Math.max(r * 0.035, size * (0.9 + rand() * 0.5)),
-        Math.max(r * 0.03, size),
-      );
     }
     ctx.restore();
   }

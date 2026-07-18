@@ -5,7 +5,7 @@ TBD - created by archiving change add-attack-arsenal-and-settings. Update Purpos
 ## Requirements
 ### Requirement: Effect toggles
 
-The system SHALL provide a settings menu with independent toggles for sound, screen shake, impact particles, damage marks, blood spatter, dizzy stars, and idle sway. Toggles SHALL take effect immediately and persist across sessions (localStorage).
+The system SHALL provide a settings menu with independent toggles for sound, screen shake, particles and comic words, damage marks, dizzy stars, and idle sway. Toggles SHALL take effect immediately and persist across sessions (localStorage).
 
 #### Scenario: Toggle takes effect immediately
 
@@ -16,11 +16,6 @@ The system SHALL provide a settings menu with independent toggles for sound, scr
 
 - **WHEN** the user changes a toggle and reloads the app
 - **THEN** the changed setting is still applied
-
-#### Scenario: Blood effects are disabled independently
-
-- **WHEN** the player disables blood spatter
-- **THEN** later impact attacks produce no blood stains or droplets while bruises and other enabled feedback continue
 
 ### Requirement: Player cap customization
 

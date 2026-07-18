@@ -15,7 +15,7 @@ The game uses Three.js, but its presentation still reads as a prototype: the fac
 - Replace emoji/comic-word effect stand-ins with authored weapon renders and bounded physical impact particles.
 - Add optional short spoken reactions with selectable female or male local voices, bounded overlap, and shared mute behavior.
 - Add measurable visual and performance acceptance scenes for desktop and mobile, including deterministic attack playback and graceful quality reduction.
-- Preserve client-only face processing, rapid input, existing controls, and a non-gory slapstick tone with optional bounded blood spatter while requiring a valid authored 3D scene for gameplay.
+- Preserve client-only face processing, rapid input, existing controls, and the blood-free slapstick tone while requiring a valid authored 3D scene for gameplay.
 
 ## Capabilities
 

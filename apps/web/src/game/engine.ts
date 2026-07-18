@@ -32,7 +32,6 @@ export interface GameSettings {
   shake: boolean;
   particles: boolean;
   damage: boolean;
-  blood: boolean;
   dizzyStars: boolean;
   sway: boolean;
 }
@@ -223,7 +222,6 @@ export class PunchGame {
     shake: true,
     particles: true,
     damage: true,
-    blood: true,
     dizzyStars: true,
     sway: true,
   };
@@ -501,15 +499,6 @@ export class PunchGame {
         textureChanged = this.damage.splat(u, v, fist.attack as "tomato" | "egg");
       } else {
         textureChanged = this.damage.hit(u, v, fist.strength);
-        if (this.settings.blood) {
-          textureChanged =
-            this.damage.blood(
-              u,
-              v,
-              fist.strength,
-              Math.atan2(-dirLy, dirLx),
-            ) || textureChanged;
-        }
       }
       if (textureChanged) this.scene3d.refreshTexture();
     }
@@ -528,16 +517,6 @@ export class PunchGame {
         this.headRadius / 90,
         ATTACK_SHAPES[fist.attack],
       );
-      if (this.settings.blood && !isFood) {
-        this.particles.bloodBurst(
-          impact.x,
-          impact.y,
-          Math.cos(dir),
-          Math.sin(dir),
-          fist.strength,
-          this.headRadius / 90,
-        );
-      }
     }
     if (isFood) this.sounds.splat();
     else if (isMallet) this.sounds.bonk(fist.strength);

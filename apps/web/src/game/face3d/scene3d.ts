@@ -334,6 +334,7 @@ export class Scene3D {
     this.capLabelCanvas.width = 512;
     this.capLabelCanvas.height = 192;
     this.capLabelTexture = new THREE.CanvasTexture(this.capLabelCanvas);
+    // glTF UV convention (top-left origin) matches the canvas directly
     this.capLabelTexture.flipY = false;
     this.capLabelTexture.colorSpace = THREE.SRGBColorSpace;
     this.capLabelTexture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -351,11 +352,13 @@ export class Scene3D {
       polygonOffsetUnits: -2,
     });
 
-    this.capAccessory = instantiateCap();
+    // Blender-authored cap (modeled to this head-local frame: crown r 0.4,
+    // rim past the brow). Procedural fallback if the asset didn't load.
+    const authoredCap = instantiateCap();
+    this.capAccessory = authoredCap.children.length > 0 ? authoredCap : buildProceduralCap();
     this.capAccessory.name = "player_cap";
-    this.capAccessory.position.set(0, 0.265, -0.01);
-    this.capAccessory.rotation.y = 0.08;
-    this.capAccessory.scale.set(0.88, 0.58, 0.82);
+    this.capAccessory.position.set(0, 0.15, -0.2);
+    this.capAccessory.rotation.z = -0.045;
     this.capAccessory.visible = false;
     this.capAccessory.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return;
@@ -956,6 +959,68 @@ export class Scene3D {
       pooledProjectiles,
     };
   }
+}
+
+/**
+ * A fitted baseball cap built from primitives: dome crown snug over the hair,
+ * curved-down visor wedge, top button, and a front label plane. Part names
+ * (cap_crown / cap_brim / cap_button / cap_label) match the colorable/label
+ * machinery that previously drove the authored model.
+ */
+function buildProceduralCap(): THREE.Group {
+  const group = new THREE.Group();
+  const shell = pbr(0xc92f35, 0.82);
+
+  // Shallow dome, cut just past the brow line (θ ≈ 1.10 rad). The group sits
+  // forward of the skull center so the front rim clears the bangs.
+  const crown = new THREE.Mesh(
+    new THREE.SphereGeometry(0.4, 40, 26, 0, Math.PI * 2, 0, 1.1),
+    shell,
+  );
+  crown.name = "cap_crown";
+  crown.scale.set(1.02, 0.95, 0.9);
+  group.add(crown);
+
+  const rimY = 0.4 * 0.95 * Math.cos(1.1); // ≈ 0.17
+  const rimR = 0.4 * Math.sin(1.1); // ≈ 0.356
+
+  // sweatband rim: a thin torus at the crown's lower edge grounds the cap
+  const band = new THREE.Mesh(new THREE.TorusGeometry(rimR, 0.021, 10, 44), shell);
+  band.name = "cap_button"; // colorable like the rest of the shell
+  band.rotation.x = Math.PI / 2;
+  band.scale.set(1.04, 0.9, 1);
+  band.position.y = rimY;
+  group.add(band);
+
+  // visor: a solid pie-wedge cylinder pointing forward (+z), tilted down
+  const visor = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.34, 0.34, 0.03, 36, 1, false, -0.62, 1.24),
+    shell,
+  );
+  visor.name = "cap_brim";
+  visor.scale.set(1, 1, 1.12);
+  // tucks under the sweatband and clears the bangs — no gap, no face-slicing
+  visor.position.set(0, rimY + 0.02, 0.19);
+  visor.rotation.x = 0.18;
+  group.add(visor);
+
+  const button = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 12), shell);
+  button.name = "cap_button";
+  button.position.set(0, 0.4 * 0.95 + 0.006, 0);
+  group.add(button);
+
+  // front panel label; the label material/texture is swapped in by Scene3D
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.14), shell);
+  label.name = "cap_label";
+  label.position.set(0, 0.27, 0.297);
+  label.rotation.x = -0.42;
+  label.scale.y = -1; // PlaneGeometry UVs are bottom-origin; texture is glTF-style
+  group.add(label);
+
+  group.traverse((object) => {
+    if (object instanceof THREE.Mesh) object.castShadow = true;
+  });
+  return group;
 }
 
 function buildEdgeSkirtGeometry(rest: Float32Array): THREE.BufferGeometry {

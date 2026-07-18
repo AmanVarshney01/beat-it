@@ -30,7 +30,7 @@ Each landed attack SHALL add a directional, damped camera impulse whose translat
 
 ### Requirement: Punch impact spawns physical particles
 
-Each landed attack SHALL spawn a weapon-specific, bounded particle burst at the resolved world contact, oriented by the attack direction and visible surface contact. Impact attacks SHALL add a compact cone of gravity-driven blood droplets when blood spatter is enabled. Gameplay effects SHALL use drawn physical sparks, droplets, fragments, or smoke and SHALL NOT use emoji or comic-word overlays.
+Each landed attack SHALL spawn a weapon-specific, bounded particle burst at the resolved world contact, oriented by the surface normal. Gameplay effects SHALL use drawn physical sparks, fragments, or smoke and SHALL NOT use emoji or comic-word overlays.
 
 #### Scenario: Particles on hit
 
@@ -41,11 +41,6 @@ Each landed attack SHALL spawn a weapon-specific, bounded particle burst at the 
 
 - **WHEN** food contacts the face
 - **THEN** its shell, pulp, spark, or smoke palette matches the weapon and does not resemble blood
-
-#### Scenario: Directional blood droplets
-
-- **WHEN** blood spatter is enabled and punch, slap, or mallet contacts the face
-- **THEN** a bounded set of small dark-red droplets originates at that exact visible contact, continues in the attack direction, falls under gravity, and is recycled after a short lifetime
 
 ### Requirement: Punch impact plays a comic sound
 

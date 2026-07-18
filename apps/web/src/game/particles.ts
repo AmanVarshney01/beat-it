@@ -1,4 +1,4 @@
-export type ShapeKind = "spark" | "smoke" | "blood";
+export type ShapeKind = "spark" | "smoke";
 
 interface ShapeParticle {
   kind: "shape";
@@ -52,39 +52,6 @@ export class ParticleSystem {
       particle.rot = Math.random() * Math.PI * 2;
       particle.vrot = (Math.random() - 0.5) * 12;
       particle.size = (12 + Math.random() * 10 * strength) * visualScale;
-      particle.life = life;
-      particle.maxLife = life;
-      this.particles.push(particle);
-    }
-  }
-
-  bloodBurst(
-    x: number,
-    y: number,
-    directionX: number,
-    directionY: number,
-    strength = 1,
-    scale = 1,
-  ) {
-    const visualScale = Math.sqrt(scale);
-    const baseAngle = Math.atan2(directionY, directionX);
-    const count = Math.max(
-      3,
-      Math.round((5 + Math.floor(Math.random() * 4)) * this.qualityMultiplier),
-    );
-    for (let i = 0; i < count; i++) {
-      const angle = baseAngle + (Math.random() - 0.5) * 1.15;
-      const speed = (130 + Math.random() * 260) * Math.min(1.45, strength) * visualScale;
-      const life = 0.42 + Math.random() * 0.34;
-      const particle = this.pool.pop() ?? createParticle();
-      particle.shape = "blood";
-      particle.x = x + Math.cos(angle) * (2 + Math.random() * 8) * visualScale;
-      particle.y = y + Math.sin(angle) * (2 + Math.random() * 8) * visualScale;
-      particle.vx = Math.cos(angle) * speed;
-      particle.vy = Math.sin(angle) * speed - 45 * scale;
-      particle.rot = angle;
-      particle.vrot = (Math.random() - 0.5) * 2.4;
-      particle.size = (5 + Math.random() * 7 * Math.min(1.5, strength)) * visualScale;
       particle.life = life;
       particle.maxLife = life;
       this.particles.push(particle);
@@ -172,36 +139,6 @@ function drawShape(ctx: CanvasRenderingContext2D, shape: ShapeKind, size: number
       ctx.fillStyle = g;
       ctx.beginPath();
       ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-    }
-    case "blood": {
-      // A compact velocity-aligned droplet with a rounded body and pointed
-      // leading edge. Keeping it opaque and small reads as liquid, not confetti.
-      ctx.fillStyle = "#8f0618";
-      ctx.beginPath();
-      ctx.moveTo(size * 0.72, 0);
-      ctx.bezierCurveTo(
-        size * 0.2,
-        -size * 0.44,
-        -size * 0.54,
-        -size * 0.34,
-        -size * 0.55,
-        0,
-      );
-      ctx.bezierCurveTo(
-        -size * 0.54,
-        size * 0.34,
-        size * 0.2,
-        size * 0.44,
-        size * 0.72,
-        0,
-      );
-      ctx.fill();
-      ctx.globalAlpha *= 0.45;
-      ctx.fillStyle = "#f06a73";
-      ctx.beginPath();
-      ctx.ellipse(-size * 0.08, -size * 0.12, size * 0.13, size * 0.08, 0, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
